@@ -11,24 +11,6 @@ Welcome to `cheetos` project. This a a simple operating system framework for the
 ### Requirements
 
 - [Install Rust.](https://www.rust-lang.org/tools/install)
-- Enable the nightly toolchain is this project.
-
-```bash
-rustup override set nightly
-```
-
-- Install the `llvm-tools-preview` component.
-
-```bash
-rustup component add llvm-tools-preview
-```
-
-- By default, Rust tries to build an executable for the host system. Since Cheetos runs on x86_64 architecture. we need to enable the `x86_64-unknown-none` target.
-
-```bash
-rustup target add x86_64-unknown-none
-```
-
 - Install [`qemu`](https://www.qemu.org/index.html) for running the operating system in a virtual machine.
 
 ### Run `cheetos`
