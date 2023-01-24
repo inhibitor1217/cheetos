@@ -7,6 +7,8 @@
 /// `boot_info` contains information about available memory, the framebuffer, etc.
 /// See the [`bootloader_api`] crate for more information.
 fn kernel_main(_boot_info: &'static mut bootloader_api::BootInfo) -> ! {
+    kernel::init();
+
     loop {}
 }
 
