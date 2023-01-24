@@ -2,7 +2,7 @@
 #![no_main]
 
 fn kernel_main(_boot_info: &'static mut bootloader_api::BootInfo) -> ! {
-    kernel::devices::shutdown::power_off()
+    panic!()
 }
 
 bootloader_api::entry_point!(kernel_main);

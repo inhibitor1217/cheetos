@@ -8,7 +8,7 @@ const QEMU_BIN: &str = "qemu-system-x86_64";
 // host system. By sending a specific value to the device, QEMU can be
 // instructed to exit with a specific exit code.
 //
-// On success, the kernel writes `0x31` to the I/O port, then QEMU will
+// On shutdown, the kernel writes `0x31` to the I/O port, then QEMU will
 // exit with exit code `(0x31 << 1) | 1`, hence `0x63`.
 const QEMU_EXIT_CODE_SUCCESS: i32 = 0x63;
 
@@ -16,6 +16,9 @@ const QEMU_ARGS: &[&str] = &[
     // This enables `isa-debug-exit` device.
     "-device",
     "isa-debug-exit,iobase=0xf4,iosize=0x04",
+    // Disable GUI.
+    "-display",
+    "none",
     // Exit instead of rebooting.
     "--no-reboot",
 ];
@@ -39,7 +42,7 @@ pub fn run_test_kernel(kernel_binary_path: &str) {
 
     match child_output.status.code() {
         Some(QEMU_EXIT_CODE_SUCCESS) => (),
-        Some(code) => panic!("Test failed with exit code {}", code),
+        Some(code) => panic!("QEMU exited with code {}", code),
         None => panic!("QEMU was killed by a signal"),
     }
 }
