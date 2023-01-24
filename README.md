@@ -43,6 +43,12 @@ This project is highly inspired by the following projects:
 
 Simply said, `cheetos` is an attempt to port Pintos into Rust.
 
+Also, the following crates were referenced in this project.
+`cheetos` do not use these crates as direct dependency, but rather uses sources derived from them.
+
+- [conquer-once](https://crates.io/crates/conquer-once)
+- [uart_16550](https://crates.io/crates/uart_16550)
+
 # License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
