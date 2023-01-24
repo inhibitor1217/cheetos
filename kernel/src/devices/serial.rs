@@ -1,6 +1,6 @@
 /// Transmission mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SerialPortMode {
+enum SerialMode {
     Uninitialized,
     Poll,
     Queue,
@@ -49,8 +49,8 @@ bitflags::bitflags! {
 ///
 /// See [PC16550D](https://www.scs.stanford.edu/10wi-cs140/pintos/specs/pc16550d.pdf)
 /// for the full specification.
-struct SerialPort {
-    mode: SerialPortMode,
+pub struct Serial {
+    mode: SerialMode,
 
     // DLAB = 0 registers.
     receiver_buffer: x86_64::instructions::port::PortReadOnly<u8>,
@@ -69,16 +69,17 @@ struct SerialPort {
     line_status: x86_64::instructions::port::PortReadOnly<u8>,
 }
 
-impl SerialPort {
+impl Serial {
     const BASE_BAUD_RATE: u32 = 1_843_200; // 1.8432 MHz
     const BAUD_RATE: u32 = 9_600; // 9.6 kbps
 
-    /// Creates a new `SerialPort` connected to 0x3F8 (COM1).
+    /// Creates a new serial port connected to 0x3F8 (COM1).
+    #[must_use = "Serial port must be initialized before use"]
     pub fn new() -> Self {
         let io_base = 0x3F8u16;
 
         Self {
-            mode: SerialPortMode::Uninitialized,
+            mode: SerialMode::Uninitialized,
 
             receiver_buffer: x86_64::instructions::port::PortReadOnly::new(io_base),
             transmitter_holding: x86_64::instructions::port::PortWriteOnly::new(io_base),
@@ -100,7 +101,7 @@ impl SerialPort {
     /// Polling mode busy-waits for the serial port to become free before writing to it.
     /// It's slow, but until interrupts are enabled, it's all we can do.
     pub fn init_poll(&mut self) {
-        assert_eq!(self.mode, SerialPortMode::Uninitialized);
+        assert_eq!(self.mode, SerialMode::Uninitialized);
 
         unsafe {
             // Turn off all interrupts.
@@ -116,7 +117,7 @@ impl SerialPort {
             self.modem_control.write(ModemControl::OUT2.bits());
         }
 
-        self.mode = SerialPortMode::Poll;
+        self.mode = SerialMode::Poll;
     }
 
     fn set_baud_rate(&mut self, baud_rate: u32) {
@@ -144,9 +145,9 @@ impl SerialPort {
     /// Sends a byte to the serial port.
     pub fn send(&mut self, data: u8) {
         match self.mode {
-            SerialPortMode::Poll => self.send_poll(data),
-            SerialPortMode::Queue => todo!(),
-            SerialPortMode::Uninitialized => {
+            SerialMode::Poll => self.send_poll(data),
+            SerialMode::Queue => todo!(),
+            SerialMode::Uninitialized => {
                 self.init_poll();
                 self.send_poll(data);
             }
@@ -155,7 +156,7 @@ impl SerialPort {
 
     /// Polls the serial port until it's ready, and then transmits the given byte.
     fn send_poll(&mut self, data: u8) {
-        assert_eq!(self.mode, SerialPortMode::Poll);
+        assert_eq!(self.mode, SerialMode::Poll);
 
         unsafe {
             // Wait until the transmitter holding register is empty.
@@ -166,5 +167,20 @@ impl SerialPort {
             // Send the byte.
             self.transmitter_holding.write(data);
         }
+    }
+}
+
+impl core::default::Default for Serial {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl core::fmt::Write for Serial {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        for byte in s.bytes() {
+            self.send(byte);
+        }
+        Ok(())
     }
 }
