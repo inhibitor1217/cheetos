@@ -1,3 +1,5 @@
+use crate::println;
+
 // We configured this by running QEMU with `-device isa-debug-exit,iobase=0xf4,iosize=0x04`.
 const ISA_DEBUG_EXIT_PORT: u16 = 0xf4;
 
@@ -7,6 +9,12 @@ const ISA_DEBUG_EXIT_CODE_SUCCESS: u8 = 0x31;
 /// Powers down the machine we're running on,
 /// as long as we're running on QEMU.
 pub fn power_off() -> ! {
+    print_stats();
+
+    unsafe {
+        println!("Powering off...");
+    }
+
     let mut port = x86_64::instructions::port::Port::new(ISA_DEBUG_EXIT_PORT);
     unsafe {
         port.write(ISA_DEBUG_EXIT_CODE_SUCCESS);
@@ -15,5 +23,13 @@ pub fn power_off() -> ! {
     // If we're not running on QEMU, we'll just loop forever.
     loop {
         x86_64::instructions::hlt();
+    }
+}
+
+/// Prints statistics about `cheetos` kernel execution.
+fn print_stats() {
+    // We need to use `unsafe` here because we are accessing a mutable static variable.
+    unsafe {
+        crate::console::CONSOLE.print_stats();
     }
 }

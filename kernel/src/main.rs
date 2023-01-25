@@ -6,8 +6,8 @@
 /// This function is called by the bootloader after the kernel has been loaded into memory.
 /// `boot_info` contains information about available memory, the framebuffer, etc.
 /// See the [`bootloader_api`] crate for more information.
-fn kernel_main(_boot_info: &'static mut bootloader_api::BootInfo) -> ! {
-    kernel::init();
+fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
+    kernel::init(boot_info);
 
     kernel::devices::shutdown::power_off()
 }
@@ -18,7 +18,12 @@ bootloader_api::entry_point!(kernel_main);
 /// The kernel panic handler.
 #[cfg(not(test))]
 #[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    // Until we implement a binding to serial port, we just shut down.
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    // Print the panic message and information.
+    unsafe {
+        kernel::println!("{info}");
+    }
+
+    // Shut down the system.
     kernel::devices::shutdown::power_off()
 }

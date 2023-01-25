@@ -75,7 +75,7 @@ impl Serial {
 
     /// Creates a new serial port connected to 0x3F8 (COM1).
     #[must_use = "Serial port must be initialized before use"]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         let io_base = 0x3F8u16;
 
         Self {
