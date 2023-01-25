@@ -1,7 +1,9 @@
 #![no_std]
 #![no_main]
 
-fn kernel_main(_boot_info: &'static mut bootloader_api::BootInfo) -> ! {
+fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
+    kernel::init(boot_info);
+
     panic!("I panicked!")
 }
 
