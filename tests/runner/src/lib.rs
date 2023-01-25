@@ -16,6 +16,9 @@ const QEMU_ARGS: &[&str] = &[
     // This enables `isa-debug-exit` device.
     "-device",
     "isa-debug-exit,iobase=0xf4,iosize=0x04",
+    // Connect serial port to stdio of the host.
+    "-serial",
+    "stdio",
     // Disable GUI.
     "-display",
     "none",

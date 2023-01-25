@@ -5,6 +5,10 @@ fn main() {
     cmd.arg("-drive");
     cmd.arg(format!("format=raw,file={bios_path}"));
 
+    // Connect serial port to stdio of the host.
+    cmd.arg("-serial");
+    cmd.arg("stdio");
+
     // This enables `isa-debug-exit` device.
     cmd.arg("-device");
     cmd.arg("isa-debug-exit,iobase=0xf4,iosize=0x04");

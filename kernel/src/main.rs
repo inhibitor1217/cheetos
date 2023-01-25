@@ -9,7 +9,7 @@
 fn kernel_main(_boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     kernel::init();
 
-    loop {}
+    kernel::devices::shutdown::power_off()
 }
 
 // This macro generates a `_start` entry point symbol that the bootloader looks for.
@@ -19,6 +19,6 @@ bootloader_api::entry_point!(kernel_main);
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
-    // Until we implement a binding to serial port, we just loop forever.
-    loop {}
+    // Until we implement a binding to serial port, we just shut down.
+    kernel::devices::shutdown::power_off()
 }
