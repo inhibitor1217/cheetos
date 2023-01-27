@@ -12,8 +12,18 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     kernel::devices::shutdown::power_off()
 }
 
+/// The kernel stack should be contained in a single page.
+/// At the bottom of the page, the thread structure corresponding to the kernel thread is stored.
+const KERNEL_STACK_SIZE: u64 = 0x1000; // 4 KiB
+
+const BOOTLOADER_CONFIG: bootloader_api::BootloaderConfig = {
+    let mut config = bootloader_api::BootloaderConfig::new_default();
+    config.kernel_stack_size = KERNEL_STACK_SIZE;
+    config
+};
+
 // This macro generates a `_start` entry point symbol that the bootloader looks for.
-bootloader_api::entry_point!(kernel_main);
+bootloader_api::entry_point!(kernel_main, config = &BOOTLOADER_CONFIG);
 
 /// The kernel panic handler.
 #[cfg(not(test))]
