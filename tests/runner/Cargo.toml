@@ -3,4 +3,4 @@ name = "tests_runner"
 version = "0.1.0"
 
 [dependencies]
-bootloader = "0.11.0"
+bootloader = { git = "https://github.com/inhibitor1217/bootloader", tag = "v0.11.1-alpha.0" }

@@ -5,7 +5,7 @@ authors = ["inhibitor1217 <inhibitor@kaist.ac.kr>"]
 edition = "2021"
 
 [build-dependencies]
-bootloader = "0.11.0"
+bootloader = { git = "https://github.com/inhibitor1217/bootloader", tag = "v0.11.1-alpha.0" }
 kernel = { path = "kernel", artifact = "bin", target = "x86_64-unknown-none" }
 
 [dev-dependencies]
