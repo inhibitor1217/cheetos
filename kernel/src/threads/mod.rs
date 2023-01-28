@@ -7,3 +7,5 @@ pub use self::thread::setup_kernel_thread;
 pub use self::thread::Id;
 pub use self::thread::Status;
 pub use self::thread::Thread;
+
+pub use self::scheduler::SCHEDULER;

@@ -1,5 +1,3 @@
-use crate::without_interrupts;
-
 /// The scheduler. This module contains the implementation of the scheduler, which
 /// handles the context switching and choosings of the thread to run.
 #[derive(Debug)]
@@ -7,7 +5,7 @@ pub struct Scheduler {}
 
 impl Scheduler {
     /// Creates a new scheduler.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {}
     }
 
@@ -35,11 +33,8 @@ impl Scheduler {
         use super::thread;
 
         let current = thread::current_thread();
-
-        without_interrupts!({
-            current.status = thread::Status::Ready;
-            self.schedule();
-        })
+        current.status = thread::Status::Ready;
+        self.schedule();
     }
 
     /// Transitions a blocked thread to the ready-to-run state.
@@ -50,14 +45,12 @@ impl Scheduler {
     /// important: if the caller had disabled interrupts itself, it may expect
     /// that it can atomically unblock a thread and update other data.
     pub fn unblock(&mut self, thread: &mut super::thread::Thread) {
-        without_interrupts!({
-            use super::thread;
+        use super::thread;
 
-            assert!(thread.is_thread());
-            assert!(thread.status == thread::Status::Blocked);
+        assert!(thread.is_thread());
+        assert!(thread.status == thread::Status::Blocked);
 
-            thread.status = thread::Status::Ready;
-        })
+        thread.status = thread::Status::Ready;
     }
 
     /// Schedules a new process. At entry, interrupts must be off and the
@@ -130,6 +123,13 @@ impl Scheduler {
         thread::current_thread()
     }
 }
+
+/// The global scheduler.
+///
+/// It is protected behind the [`super::interrupt::InterruptGuard`] to ensure
+/// that only one thread can access it at a time.
+pub static SCHEDULER: super::interrupt::InterruptGuard<Scheduler> =
+    super::interrupt::InterruptGuard::new(Scheduler::new());
 
 /// Entrypoint of a newly created thread. This function is called when the
 /// thread is first scheduled. Since [`Scheduler::switch_threads()`] only works
