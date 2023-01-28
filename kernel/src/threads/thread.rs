@@ -90,7 +90,7 @@ pub struct Thread {
     pub status: Status,
 
     /// Name (for debugging purposes).
-    pub name: [u8; Self::NAME_LENGTH],
+    name: [u8; Self::NAME_LENGTH],
 
     /// Priority.
     pub priority: u32,
@@ -133,6 +133,16 @@ impl Thread {
     fn is_thread(&self) -> bool {
         self.magic == Self::MAGIC
     }
+
+    /// Returns the name of the thread.
+    pub fn name(&self) -> &str {
+        let end = self
+            .name
+            .iter()
+            .position(|&b| b == 0)
+            .unwrap_or(Self::NAME_LENGTH);
+        core::str::from_utf8(&self.name[..end]).unwrap()
+    }
 }
 
 /// Returns the running thread.
@@ -145,24 +155,6 @@ pub fn current_thread() -> &'static mut Thread {
     assert!(thread.status == Status::Running);
 
     thread
-}
-
-/// Returns the current thread.
-fn running_thread() -> &'static mut Thread {
-    // Copy the CPU's stack pointer into `rsp`, and then round that down to the
-    // start of the page. Because `Thread` is always at the beginning of a page
-    // and the stack pointer is somewhere in the middle, this locates the current
-    // `Thread`.
-    let rsp: u64;
-    unsafe {
-        core::arch::asm!("mov {}, rsp", out(reg) rsp);
-        let rsp = x86_64::VirtAddr::new(rsp);
-        &mut *x86_64::structures::paging::Page::<x86_64::structures::paging::Size4KiB>::containing_address(
-            rsp,
-        )
-        .start_address()
-        .as_mut_ptr()
-    }
 }
 
 /// Transforms the code that's currently running into a thread. This cannot work
@@ -180,4 +172,22 @@ pub fn setup_kernel_thread() {
     kernel_thread.init("main", Thread::PRIORITY_DEFAULT);
     kernel_thread.status = Status::Running;
     kernel_thread.id = Id::new();
+}
+
+/// Returns the current thread.
+pub fn running_thread() -> &'static mut Thread {
+    // Copy the CPU's stack pointer into `rsp`, and then round that down to the
+    // start of the page. Because `Thread` is always at the beginning of a page
+    // and the stack pointer is somewhere in the middle, this locates the current
+    // `Thread`.
+    let rsp: u64;
+    unsafe {
+        core::arch::asm!("mov {}, rsp", out(reg) rsp);
+        let rsp = x86_64::VirtAddr::new(rsp);
+        &mut *x86_64::structures::paging::Page::<x86_64::structures::paging::Size4KiB>::containing_address(
+            rsp,
+        )
+        .start_address()
+        .as_mut_ptr()
+    }
 }

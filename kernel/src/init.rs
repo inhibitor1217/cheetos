@@ -5,7 +5,7 @@ pub fn init(boot_info: &'static bootloader_api::BootInfo) {
     greet(boot_info);
 
     // Initialize ourselves as a thread so we can use locks.
-    threads::thread::setup_kernel_thread();
+    threads::setup_kernel_thread();
 }
 
 fn greet(boot_info: &bootloader_api::BootInfo) {
