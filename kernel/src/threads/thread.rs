@@ -1,7 +1,39 @@
 /// Thread identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct ThreadId(u32);
+pub struct Id(u32);
+
+impl Id {
+    /// Returns a thread id to use for a new thread.
+    fn new() -> Self {
+        static mut NEXT_ID: u32 = 0;
+        let id: u32;
+
+        // TODO: protect this with a lock.
+        unsafe {
+            id = NEXT_ID;
+            NEXT_ID += 1;
+        }
+
+        Self(id)
+    }
+}
+
+/// States in a thread's life cycle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Status {
+    /// Running thread.
+    Running,
+
+    /// Not running but ready to run.
+    Ready,
+
+    /// Waiting for an event to trigger.
+    Blocked,
+
+    /// About to be destroyed.
+    Dying,
+}
 
 /// A kernel thread or a user process.
 ///
@@ -52,7 +84,16 @@ pub struct ThreadId(u32);
 #[repr(C)]
 pub struct Thread {
     /// Thread identifier.
-    pub id: ThreadId,
+    pub id: Id,
+
+    /// Thread state.
+    pub status: Status,
+
+    /// Name (for debugging purposes).
+    pub name: [u8; Self::NAME_LENGTH],
+
+    /// Priority.
+    pub priority: u32,
 
     /// Detects stack overflow.
     pub magic: u32,
@@ -62,14 +103,48 @@ impl Thread {
     /// Random value for [`Thread`]'s 'magic' member.
     ///
     /// Used to detect stack overflow.
-    pub const MAGIC: u32 = 0xcd6a_bf4b;
+    const MAGIC: u32 = 0xcd6a_bf4b;
+
+    /// Maximum length of a thread name.
+    const NAME_LENGTH: usize = 16;
+
+    /// Lowest priority.
+    const PRIORITY_MIN: u32 = 0;
+
+    /// Default priority.
+    const PRIORITY_DEFAULT: u32 = 31;
+
+    /// Highest priority.
+    const PRIORITY_MAX: u32 = 63;
+
+    /// Does basic initialization as a blocked thread named `name`.
+    fn init(&mut self, name: &str, priority: u32) {
+        assert!(Self::PRIORITY_MIN <= priority && priority <= Self::PRIORITY_MAX);
+        assert!(name.len() <= Self::NAME_LENGTH);
+
+        self.status = Status::Blocked;
+        self.name = [0; Self::NAME_LENGTH];
+        self.name[..name.len()].copy_from_slice(name.as_bytes());
+        self.priority = priority;
+        self.magic = Self::MAGIC;
+    }
+
+    /// Returns true if `thread` appears to be a valid thread.
+    fn is_thread(&self) -> bool {
+        self.magic == Self::MAGIC
+    }
 }
 
 /// Returns the running thread.
 ///
 /// This is [`running_thread()`] plus a couple of sanity checks.
 pub fn current_thread() -> &'static mut Thread {
-    running_thread()
+    let thread = running_thread();
+
+    assert!(thread.is_thread());
+    assert!(thread.status == Status::Running);
+
+    thread
 }
 
 /// Returns the current thread.
@@ -99,5 +174,10 @@ fn running_thread() -> &'static mut Thread {
 ///
 /// It is not safe to call [`current_thread()`] until this function finishes.
 pub fn setup_kernel_thread() {
-    todo!()
+    assert!(!x86_64::instructions::interrupts::are_enabled());
+
+    let mut kernel_thread = running_thread();
+    kernel_thread.init("main", Thread::PRIORITY_DEFAULT);
+    kernel_thread.status = Status::Running;
+    kernel_thread.id = Id::new();
 }

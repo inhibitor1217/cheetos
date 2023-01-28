@@ -1,5 +1,5 @@
 #![no_std]
-#![warn(clippy::all, clippy::pedantic)]
+#![warn(clippy::all)]
 
 pub mod console;
 pub mod devices;
