@@ -96,6 +96,9 @@ pub struct Thread {
     /// Priority.
     pub priority: u32,
 
+    /// Number of timer ticks since last yield.
+    pub ticks: u32,
+
     /// Detects stack overflow.
     pub magic: u32,
 }
@@ -128,7 +131,7 @@ impl Thread {
     }
 
     /// Returns true if `thread` appears to be a valid thread.
-    fn is_thread(&self) -> bool {
+    pub fn is_thread(&self) -> bool {
         self.magic == Self::MAGIC
     }
 
@@ -140,6 +143,12 @@ impl Thread {
             .position(|&b| b == 0)
             .unwrap_or(Self::NAME_LENGTH);
         core::str::from_utf8(&self.name[..end]).unwrap()
+    }
+}
+
+impl PartialEq for Thread {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
 
@@ -164,7 +173,7 @@ pub fn current_thread() -> &'static mut Thread {
 ///
 /// It is not safe to call [`current_thread()`] until this function finishes.
 pub fn setup_kernel_thread() {
-    assert!(!x86_64::instructions::interrupts::are_enabled());
+    assert!(super::interrupt::are_disabled());
 
     let mut kernel_thread = running_thread();
     kernel_thread.init("main", Thread::PRIORITY_DEFAULT);

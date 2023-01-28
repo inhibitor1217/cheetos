@@ -77,6 +77,8 @@ pub unsafe fn _print(args: core::fmt::Arguments) {
 /// global console writer. The caller should ensure that the console writer is
 /// not accessed by other threads. We can remove the `unsafe` keyword after we
 /// implement threads and synchronization.
+///
+/// TODO: implement synchronization and protect the console writer.
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => ($crate::console::_print(format_args!($($arg)*)));
@@ -89,6 +91,8 @@ macro_rules! print {
 /// global console writer. The caller should ensure that the console writer is
 /// not accessed by other threads. We can remove the `unsafe` keyword after we
 /// implement threads and synchronization.
+///
+/// TODO: implement synchronization and protect the console writer.
 #[macro_export]
 macro_rules! println {
     () => ($crate::print!("\n"));

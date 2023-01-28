@@ -1,3 +1,4 @@
+mod interrupt;
 mod scheduler;
 mod thread;
 

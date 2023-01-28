@@ -15,13 +15,21 @@ impl Scheduler {
     /// This function must be called with interrupts turned off. It is usually a
     /// better idea to use one of the synchronization primitives in
     /// `threads::sync` instead.
-    pub fn block_current_thread() {
-        todo!()
+    pub fn block_current_thread(&mut self) {
+        use super::{interrupt, thread};
+
+        assert!(!interrupt::is_external_handler_context());
+        assert!(interrupt::are_disabled());
+
+        let current = thread::current_thread();
+        current.status = thread::Status::Blocked;
+
+        self.schedule();
     }
 
     /// Yields the CPU. The current thread is not put to sleep and may be
     /// scheduled again immediately at the scheduler's whim.
-    pub fn yield_current_thread() {
+    pub fn yield_current_thread(&mut self) {
         todo!()
     }
 
@@ -32,22 +40,18 @@ impl Scheduler {
     /// This function does not preempt the running thread. This can be
     /// important: if the caller had disabled interrupts itself, it may expect
     /// that it can atomically unblock a thread and update other data.
-    pub fn unblock(_thread: &mut super::thread::Thread) {
-        todo!()
-    }
-
-    /// Entrypoint of a newly created thread. This function is called when the
-    /// thread is first scheduled. Since [`switch_threads()`] only works when
-    /// both threads are running, we need to switch to the thread's context
-    /// manually.
-    pub fn switch_entry() {
+    pub fn unblock(&mut self, thread: &mut super::thread::Thread) {
         todo!()
     }
 
     /// Switches from `cur`, which must be the running thread, to `next`, which
     /// must also be running [`switch_threads()`], returning `cur` in `next`'s
     /// context.
-    pub fn switch_threads(_cur: &mut super::thread::Thread, _next: &mut super::thread::Thread) {
+    pub fn switch_threads(
+        &mut self,
+        _cur: &'static mut super::thread::Thread,
+        _next: &'static mut super::thread::Thread,
+    ) -> &'static mut super::thread::Thread {
         todo!()
     }
 
@@ -55,8 +59,22 @@ impl Scheduler {
     /// running process's state must have been changed from running to some
     /// other state. This function finds another thread to run and switches to
     /// it.
-    fn schedule() {
-        todo!()
+    fn schedule(&mut self) {
+        use super::{interrupt, thread};
+
+        let current = thread::current_thread();
+        let next = self.next_thread_to_run();
+
+        assert!(interrupt::are_disabled());
+        assert!(current.status != thread::Status::Running);
+        assert!(next.is_thread());
+
+        if current != next {
+            let _prev = self.switch_threads(current, next);
+            // TODO: drop `prev` if it is dying
+        }
+
+        self.schedule_tail();
     }
 
     /// Completes a thread switch by activating the new thread's page tables,
@@ -70,15 +88,37 @@ impl Scheduler {
     ///
     /// After this function and its caller returns, the thread switch is
     /// complete.
-    fn schedule_tail() {
-        todo!()
+    fn schedule_tail(&mut self) {
+        use super::{interrupt, thread};
+
+        let current = thread::running_thread();
+
+        assert!(interrupt::are_disabled());
+
+        // Mark us as running.
+        current.status = thread::Status::Running;
+
+        // Start new time slice.
+        current.ticks = 0;
     }
 
     /// Chooses and returns the next thread to be scheduled. Should return a
     /// thread from the run queue, unless the run queue is empty. (If the
     /// running thread can continue running, then it will be in the run queue.)
     /// If the run queue is empty, then choose [`idle_thread`].
-    fn next_thread_to_run() -> &'static mut super::thread::Thread {
-        todo!()
+    fn next_thread_to_run(&mut self) -> &'static mut super::thread::Thread {
+        use super::thread;
+
+        // TODO: implement this properly. For now, always re-schedule the
+        // current thread.
+        thread::current_thread()
     }
+}
+
+/// Entrypoint of a newly created thread. This function is called when the
+/// thread is first scheduled. Since [`Scheduler::switch_threads()`] only works
+/// when both threads are running, we need to switch to the thread's context
+/// manually.
+pub fn switch_entry() {
+    todo!()
 }
