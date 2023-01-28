@@ -108,9 +108,6 @@ impl Thread {
     /// Maximum length of a thread name.
     const NAME_LENGTH: usize = 16;
 
-    /// Lowest priority.
-    const PRIORITY_MIN: u32 = 0;
-
     /// Default priority.
     const PRIORITY_DEFAULT: u32 = 31;
 
@@ -119,7 +116,7 @@ impl Thread {
 
     /// Does basic initialization as a blocked thread named `name`.
     fn init(&mut self, name: &str, priority: u32) {
-        assert!(Self::PRIORITY_MIN <= priority && priority <= Self::PRIORITY_MAX);
+        assert!(priority <= Self::PRIORITY_MAX);
         assert!(name.len() <= Self::NAME_LENGTH);
 
         self.status = Status::Blocked;
