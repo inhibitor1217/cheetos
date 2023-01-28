@@ -1,3 +1,5 @@
+use crate::without_interrupts;
+
 /// The scheduler. This module contains the implementation of the scheduler, which
 /// handles the context switching and choosings of the thread to run.
 #[derive(Debug)]
@@ -30,7 +32,14 @@ impl Scheduler {
     /// Yields the CPU. The current thread is not put to sleep and may be
     /// scheduled again immediately at the scheduler's whim.
     pub fn yield_current_thread(&mut self) {
-        todo!()
+        use super::thread;
+
+        let current = thread::current_thread();
+
+        without_interrupts!({
+            current.status = thread::Status::Ready;
+            self.schedule();
+        })
     }
 
     /// Transitions a blocked thread to the ready-to-run state.
@@ -41,7 +50,14 @@ impl Scheduler {
     /// important: if the caller had disabled interrupts itself, it may expect
     /// that it can atomically unblock a thread and update other data.
     pub fn unblock(&mut self, thread: &mut super::thread::Thread) {
-        todo!()
+        without_interrupts!({
+            use super::thread;
+
+            assert!(thread.is_thread());
+            assert!(thread.status == thread::Status::Blocked);
+
+            thread.status = thread::Status::Ready;
+        })
     }
 
     /// Switches from `cur`, which must be the running thread, to `next`, which
