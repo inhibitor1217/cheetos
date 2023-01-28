@@ -38,9 +38,9 @@ pub enum Status {
 /// A kernel thread or a user process.
 ///
 /// Each thread structure is stored in its own 4 KiB page. The thread structure
-/// itself sits at the very bottom of the page (at offset 0). The reset of the page
-/// is reserved for the thread's kernel stack, which grows downward from the top of
-/// the page (at offset 4 KiB). Here's an illustration:
+/// itself sits at the very bottom of the page (at offset 0). The reset of the
+/// page is reserved for the thread's kernel stack, which grows downward from
+/// the top of the page (at offset 4 KiB). Here's an illustration:
 ///
 /// ```
 ///    4 kB +---------------------------------+
@@ -68,18 +68,19 @@ pub enum Status {
 ///
 /// The upshot of this is twofold:
 ///
-/// 1. First, [`Thread`] must be not allowed to grow too big. If it does, then there will
-/// not be enough room for the kernel stack. Our base [`Thread`] is only a few bytes in size.
-/// It probably should stay well under 1 KiB.
+/// 1. First, [`Thread`] must be not allowed to grow too big. If it does, then
+/// there will not be enough room for the kernel stack. Our base [`Thread`] is
+/// only a few bytes in size. It probably should stay well under 1 KiB.
 ///
-/// 2. Second, kernel stacks must not be allowed to grow too large. If a stack overflows,
-/// it will corrupt the thread state. Thus, kernel functions should not allocate large
-/// structures or arrays as non-static local variables. Use dynamic allocation with `malloc()`
-/// or `palloc_get_page()` instead.
+/// 2. Second, kernel stacks must not be allowed to grow too large. If a stack
+/// overflows, it will corrupt the thread state. Thus, kernel functions should
+/// not allocate large structures or arrays as non-static local variables. Use
+/// dynamic allocation with `malloc()` or `palloc_get_page()` instead.
 ///
-/// The first symptom of either of these problems will probably be an assertion failure in
-/// [`current_thread()`], which checks that the `magic` field of the running [`Thread`] is set to
-/// `Thread::MAGIC`. Stack overflow will normally change this value, triggering the assertion.
+/// The first symptom of either of these problems will probably be an assertion
+/// failure in [`current_thread()`], which checks that the `magic` field of the
+/// running [`Thread`] is set to `Thread::MAGIC`. Stack overflow will normally
+/// change this value, triggering the assertion.
 #[derive(Debug)]
 #[repr(C)]
 pub struct Thread {
@@ -175,8 +176,8 @@ pub fn setup_kernel_thread() {
 pub fn running_thread() -> &'static mut Thread {
     // Copy the CPU's stack pointer into `rsp`, and then round that down to the
     // start of the page. Because `Thread` is always at the beginning of a page
-    // and the stack pointer is somewhere in the middle, this locates the current
-    // `Thread`.
+    // and the stack pointer is somewhere in the middle, this locates the
+    // current `Thread`.
     let rsp: u64;
     unsafe {
         core::arch::asm!("mov {}, rsp", out(reg) rsp);

@@ -1,6 +1,7 @@
 use crate::println;
 
-// We configured this by running QEMU with `-device isa-debug-exit,iobase=0xf4,iosize=0x04`.
+// We configured this by running QEMU with
+// `-device isa-debug-exit,iobase=0xf4,iosize=0x04`.
 const ISA_DEBUG_EXIT_PORT: u16 = 0xf4;
 
 // We use 0x31 as the exit code.
@@ -28,7 +29,8 @@ pub fn power_off() -> ! {
 
 /// Prints statistics about `cheetos` kernel execution.
 fn print_stats() {
-    // We need to use `unsafe` here because we are accessing a mutable static variable.
+    // We need to use `unsafe` here because we are accessing a mutable static
+    // variable.
     unsafe {
         crate::console::CONSOLE.print_stats();
     }

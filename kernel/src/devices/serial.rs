@@ -98,8 +98,9 @@ impl Serial {
 
     /// Initializes the serial port to a polling mode.
     ///
-    /// Polling mode busy-waits for the serial port to become free before writing to it.
-    /// It's slow, but until interrupts are enabled, it's all we can do.
+    /// Polling mode busy-waits for the serial port to become free before
+    /// writing to it. It's slow, but until interrupts are enabled, it's all we
+    /// can do.
     pub fn init_poll(&mut self) {
         assert_eq!(self.mode, SerialMode::Uninitialized);
 
@@ -154,7 +155,8 @@ impl Serial {
         }
     }
 
-    /// Polls the serial port until it's ready, and then transmits the given byte.
+    /// Polls the serial port until it's ready, and then transmits the given
+    /// byte.
     fn send_poll(&mut self, data: u8) {
         assert_eq!(self.mode, SerialMode::Poll);
 

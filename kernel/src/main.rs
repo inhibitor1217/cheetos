@@ -3,8 +3,10 @@
 
 /// The entry point of the kernel.
 ///
-/// This function is called by the bootloader after the kernel has been loaded into memory.
-/// `boot_info` contains information about available memory, the framebuffer, etc.
+/// This function is called by the bootloader after the kernel has been loaded
+/// into memory. `boot_info` contains information about available memory, the
+/// framebuffer, etc.
+///
 /// See the [`bootloader_api`] crate for more information.
 fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     kernel::init(boot_info);
@@ -13,7 +15,8 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
 }
 
 /// The kernel stack should be contained in a single page.
-/// At the bottom of the page, the thread structure corresponding to the kernel thread is stored.
+/// At the bottom of the page, the thread structure corresponding to the kernel
+/// thread is stored.
 const KERNEL_STACK_SIZE: u64 = 0x1000; // 4 KiB
 
 const BOOTLOADER_CONFIG: bootloader_api::BootloaderConfig = {
@@ -22,7 +25,8 @@ const BOOTLOADER_CONFIG: bootloader_api::BootloaderConfig = {
     config
 };
 
-// This macro generates a `_start` entry point symbol that the bootloader looks for.
+// This macro generates a `_start` entry point symbol that the bootloader looks
+// for.
 bootloader_api::entry_point!(kernel_main, config = &BOOTLOADER_CONFIG);
 
 /// The kernel panic handler.
