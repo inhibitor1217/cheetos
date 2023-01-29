@@ -55,7 +55,12 @@ impl<T> LinkedList<T> {
     }
 
     /// Initializes the [`LinkedList`].
-    pub fn init(&mut self) {
+    ///
+    /// # Safety
+    /// This function is unsafe because the list must exist in a static
+    /// location. This is because the internal pointers of the list is
+    /// self-referential. Also, this function must only be called once.
+    pub unsafe fn init(&mut self) {
         self.front.next = Some(&mut self.back);
         self.back.prev = Some(&mut self.front);
     }
@@ -248,7 +253,12 @@ impl Node {
 #[macro_export]
 macro_rules! get_element {
     ($node:expr, $container:ty, $field:ident) => {
-        &mut *(($node as *mut Node<$container).offset(-crate::utils::offset_of!($container, $field)) as *mut $container)
+        unsafe {
+            use crate::{offset_of, utils::data_structures::linked_list};
+
+            &mut *(($node as *mut linked_list::Node).offset(-offset_of!($container, $field))
+                as *mut $container)
+        }
     };
 }
 

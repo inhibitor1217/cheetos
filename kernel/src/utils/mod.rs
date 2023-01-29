@@ -1,2 +1,2 @@
-mod data_structures;
-mod offset_of;
+pub mod data_structures;
+pub mod offset_of;

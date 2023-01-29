@@ -1,3 +1,5 @@
+use crate::{threads::interrupt, utils::data_structures::linked_list};
+
 /// Thread identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
@@ -99,6 +101,9 @@ pub struct Thread {
     /// Number of timer ticks since last yield.
     pub ticks: u32,
 
+    /// Shared between `thread` and `sync`.
+    pub sync_node: linked_list::Node,
+
     /// Detects stack overflow.
     pub magic: u32,
 }
@@ -173,7 +178,7 @@ pub fn current_thread() -> &'static mut Thread {
 ///
 /// It is not safe to call [`current_thread()`] until this function finishes.
 pub fn setup_kernel_thread() {
-    assert!(super::interrupt::are_disabled());
+    assert!(interrupt::are_disabled());
 
     let mut kernel_thread = running_thread();
     kernel_thread.init("main", Thread::PRIORITY_DEFAULT);

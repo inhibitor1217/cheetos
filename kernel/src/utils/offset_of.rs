@@ -6,7 +6,10 @@
 /// for structs that should be used with [`offset_of!`].
 #[macro_export]
 macro_rules! offset_of {
-    ($container:ty, $field:ident) => {
-        unsafe { &(*(0 as *const $container)).$field as *const _ as usize }
-    };
+    ($container:ty, $field:ident) => {{
+        #[allow(unused_unsafe)]
+        unsafe {
+            &(*(0 as *const $container)).$field as *const _ as isize
+        }
+    }};
 }
