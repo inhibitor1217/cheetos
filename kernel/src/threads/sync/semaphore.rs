@@ -23,7 +23,7 @@ pub struct Semaphore {
 impl Semaphore {
     /// Creates a new, uninitialized [`Semaphore`] with `value`.
     #[must_use = "initializing a `Semaphore` does nothing without `.init()`"]
-    pub fn new(value: usize) -> Self {
+    pub const fn new(value: usize) -> Self {
         Self {
             inner: interrupt::Mutex::new(Inner::new(value)),
         }
@@ -35,7 +35,7 @@ impl Semaphore {
     /// This function is unsafe because the caller must ensure that the
     /// semaphore is in a static location. Also, this function must only be
     /// called once.
-    pub unsafe fn init(&mut self) {
+    pub unsafe fn init(&self) {
         self.inner.lock().init();
     }
 
@@ -46,7 +46,7 @@ impl Semaphore {
     /// handler. This function may be called with interrupts disabled, but if
     /// it sleeps then the next scheduled thread will probably turn interrupts
     /// back on.
-    pub fn down(&mut self) {
+    pub fn down(&self) {
         assert!(!interrupt::is_external_handler_context());
         self.inner.lock().down();
     }
@@ -56,7 +56,7 @@ impl Semaphore {
     /// otherwise.
     ///
     /// This function may be called from an interrupt handler.
-    pub fn try_down(&mut self) -> bool {
+    pub fn try_down(&self) -> bool {
         self.inner.lock().try_down()
     }
 
@@ -64,7 +64,7 @@ impl Semaphore {
     /// one thread of those waiting for `self`.
     ///
     /// This function may be called from an interrupt handler.
-    pub fn up(&mut self) {
+    pub fn up(&self) {
         self.inner.lock().up();
     }
 }
@@ -79,7 +79,7 @@ struct Inner {
 }
 
 impl Inner {
-    fn new(value: usize) -> Self {
+    const fn new(value: usize) -> Self {
         Self {
             value,
             waiters: LinkedList::new(),

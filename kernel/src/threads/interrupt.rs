@@ -39,7 +39,7 @@ macro_rules! without_interrupts {
     }};
 }
 
-/// A mutual exclusion primitive use for protecting shared data.
+/// A mutual exclusion primitive used for protecting shared data.
 ///
 /// This mutex will disable interrupts when the mutable reference is accessed.
 /// This ensures that no other thread can access the data while the mutex
@@ -57,6 +57,7 @@ impl<T> Mutex<T> {
         }
     }
 
+    /// Locks the mutex and returns a mutable reference to the inner data.
     pub fn lock(&self) -> MutexGuard<T> {
         MutexGuard::new(self)
     }
