@@ -1,5 +1,6 @@
 mod interrupt;
 mod scheduler;
+mod sync;
 mod thread;
 
 pub use self::thread::current_thread;
