@@ -7,9 +7,8 @@
 #[macro_export]
 macro_rules! offset_of {
     ($container:ty, $field:ident) => {{
-        #[allow(unused_unsafe)]
-        unsafe {
-            &(*(0 as *const $container)).$field as *const _ as isize
-        }
+        let base = core::mem::MaybeUninit::<$container>::uninit().as_ptr();
+        let field = core::ptr::addr_of!((*base).$field);
+        field as isize - base as isize
     }};
 }
