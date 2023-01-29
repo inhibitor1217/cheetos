@@ -104,7 +104,7 @@ impl<T> Mutex<T> {
     /// # Safety
     /// This function is unsafe because the caller must ensure that the mutex is
     /// in a static location. Also, this function must only be called once.
-    pub unsafe fn init(&mut self) {
+    pub unsafe fn init(&self) {
         self.lock.init();
     }
 
@@ -114,6 +114,10 @@ impl<T> Mutex<T> {
         MutexGuard::new(self)
     }
 }
+
+/// [`Mutex`] is [`Sync`] because the underlying mutable data is protected by a
+/// [`Lock`].
+unsafe impl<T> Sync for Mutex<T> {}
 
 /// An RAII guard of a critical section protected by a [`Lock`].
 pub struct MutexGuard<'a, T> {

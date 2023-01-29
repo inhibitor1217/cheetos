@@ -1,4 +1,9 @@
-use crate::{threads::interrupt, utils::data_structures::linked_list};
+use crate::utils::data_structures::linked_list;
+
+use super::{interrupt, sync::lock};
+
+/// Atomic counter for generating [`Id`]s.
+static THREAD_ID: lock::Mutex<u32> = lock::Mutex::new(0);
 
 /// Thread identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -8,14 +13,9 @@ pub struct Id(u32);
 impl Id {
     /// Returns a thread id to use for a new thread.
     fn new() -> Self {
-        static mut NEXT_ID: u32 = 0;
-        let id: u32;
-
-        // TODO: protect this with a lock.
-        unsafe {
-            id = NEXT_ID;
-            NEXT_ID += 1;
-        }
+        let mut id_lock = THREAD_ID.lock();
+        let id = *id_lock;
+        *id_lock += 1;
 
         Self(id)
     }
@@ -179,6 +179,10 @@ pub fn current_thread() -> &'static mut Thread {
 /// It is not safe to call [`current_thread()`] until this function finishes.
 pub fn setup_kernel_thread() {
     assert!(interrupt::are_disabled());
+
+    unsafe {
+        THREAD_ID.init();
+    }
 
     let mut kernel_thread = running_thread();
     kernel_thread.init("main", Thread::PRIORITY_DEFAULT);

@@ -2,10 +2,10 @@ use crate::{println, threads};
 
 /// Initializes the kernel.
 pub fn init(boot_info: &'static bootloader_api::BootInfo) {
-    greet(boot_info);
-
     // Initialize ourselves as a thread so we can use locks.
     threads::setup_kernel_thread();
+
+    greet(boot_info);
 }
 
 fn greet(boot_info: &bootloader_api::BootInfo) {
