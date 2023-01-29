@@ -1,3 +1,5 @@
+use super::{interrupt, thread};
+
 /// The scheduler. This module contains the implementation of the scheduler, which
 /// handles the context switching and choosings of the thread to run.
 #[derive(Debug)]
@@ -16,8 +18,6 @@ impl Scheduler {
     /// better idea to use one of the synchronization primitives in
     /// `threads::sync` instead.
     pub fn block_current_thread(&self) {
-        use super::{interrupt, thread};
-
         assert!(!interrupt::is_external_handler_context());
         assert!(interrupt::are_disabled());
 
@@ -30,8 +30,6 @@ impl Scheduler {
     /// Yields the CPU. The current thread is not put to sleep and may be
     /// scheduled again immediately at the scheduler's whim.
     pub fn yield_current_thread(&mut self) {
-        use super::thread;
-
         let current = thread::current_thread();
         current.status = thread::Status::Ready;
         self.schedule();
@@ -44,9 +42,7 @@ impl Scheduler {
     /// This function does not preempt the running thread. This can be
     /// important: if the caller had disabled interrupts itself, it may expect
     /// that it can atomically unblock a thread and update other data.
-    pub fn unblock(&mut self, thread: &mut super::thread::Thread) {
-        use super::thread;
-
+    pub fn unblock(&mut self, thread: &mut thread::Thread) {
         assert!(thread.is_thread());
         assert!(thread.status == thread::Status::Blocked);
 
@@ -58,8 +54,6 @@ impl Scheduler {
     /// other state. This function finds another thread to run and switches to
     /// it.
     fn schedule(&self) {
-        use super::{interrupt, thread};
-
         let current = thread::current_thread();
         let next = self.next_thread_to_run();
 
@@ -80,9 +74,9 @@ impl Scheduler {
     /// context.
     fn switch_threads(
         &self,
-        _cur: &'static mut super::thread::Thread,
-        _next: &'static mut super::thread::Thread,
-    ) -> &'static mut super::thread::Thread {
+        _cur: &'static mut thread::Thread,
+        _next: &'static mut thread::Thread,
+    ) -> &'static mut thread::Thread {
         todo!()
     }
 
@@ -98,8 +92,6 @@ impl Scheduler {
     /// After this function and its caller returns, the thread switch is
     /// complete.
     fn schedule_tail(&self) {
-        use super::{interrupt, thread};
-
         let current = thread::running_thread();
 
         assert!(interrupt::are_disabled());
@@ -115,9 +107,7 @@ impl Scheduler {
     /// thread from the run queue, unless the run queue is empty. (If the
     /// running thread can continue running, then it will be in the run queue.)
     /// If the run queue is empty, then choose [`idle_thread`].
-    fn next_thread_to_run(&self) -> &'static mut super::thread::Thread {
-        use super::thread;
-
+    fn next_thread_to_run(&self) -> &'static mut thread::Thread {
         // TODO: implement this properly. For now, always re-schedule the
         // current thread.
         thread::current_thread()
@@ -126,10 +116,9 @@ impl Scheduler {
 
 /// The global scheduler.
 ///
-/// It is protected behind the [`super::interrupt::InterruptGuard`] to ensure
+/// It is protected behind the [`interrupt::Mutex`] to ensure
 /// that only one thread can access it at a time.
-pub static SCHEDULER: super::interrupt::InterruptGuard<Scheduler> =
-    super::interrupt::InterruptGuard::new(Scheduler::new());
+pub static SCHEDULER: interrupt::Mutex<Scheduler> = interrupt::Mutex::new(Scheduler::new());
 
 /// Entrypoint of a newly created thread. This function is called when the
 /// thread is first scheduled. Since [`Scheduler::switch_threads()`] only works
