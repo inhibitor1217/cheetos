@@ -24,20 +24,10 @@ pub struct Lock {
 
 impl Lock {
     /// Creates a new [`Lock`].
-    #[must_use = "initializing a `Lock` does nothing without `.init()`"]
     pub const fn new() -> Self {
         Self {
             semaphore: Semaphore::new(1),
         }
-    }
-
-    /// Initializes the [`Lock`].
-    ///
-    /// # Safety
-    /// This function is unsafe because the caller must ensure that the lock is
-    /// in a static location. Also, this function must only be called once.
-    pub unsafe fn init(&self) {
-        self.semaphore.init();
     }
 
     /// Acquires the lock, sleeping until it becomes available if necessary.
@@ -88,7 +78,6 @@ pub struct Mutex<T> {
 
 impl<T> Mutex<T> {
     /// Creates a new [`Mutex`].
-    #[must_use = "initializing a `Mutex` does nothing without `.init()`"]
     pub const fn new(value: T) -> Self {
         Self {
             data: UnsafeCell::new(MutexData {
@@ -97,15 +86,6 @@ impl<T> Mutex<T> {
             }),
             lock: Lock::new(),
         }
-    }
-
-    /// Initializes the [`Mutex`].
-    ///
-    /// # Safety
-    /// This function is unsafe because the caller must ensure that the mutex is
-    /// in a static location. Also, this function must only be called once.
-    pub unsafe fn init(&self) {
-        self.lock.init();
     }
 
     /// Returns a guard which locks the mutex when accessed a mutable reference,

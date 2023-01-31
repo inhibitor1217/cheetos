@@ -180,10 +180,6 @@ pub fn current_thread() -> &'static mut Thread {
 pub fn setup_kernel_thread() {
     assert!(interrupt::are_disabled());
 
-    unsafe {
-        THREAD_ID.init();
-    }
-
     let mut kernel_thread = running_thread();
     kernel_thread.init("main", Thread::PRIORITY_DEFAULT);
     kernel_thread.status = Status::Running;

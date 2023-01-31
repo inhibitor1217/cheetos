@@ -22,21 +22,10 @@ pub struct Semaphore {
 
 impl Semaphore {
     /// Creates a new, uninitialized [`Semaphore`] with `value`.
-    #[must_use = "initializing a `Semaphore` does nothing without `.init()`"]
     pub const fn new(value: usize) -> Self {
         Self {
             inner: interrupt::Mutex::new(Inner::new(value)),
         }
-    }
-
-    /// Initializes the [`Semaphore`].
-    ///
-    /// # Safety
-    /// This function is unsafe because the caller must ensure that the
-    /// semaphore is in a static location. Also, this function must only be
-    /// called once.
-    pub unsafe fn init(&self) {
-        self.inner.lock().init();
     }
 
     /// Down or "P" operation on a [`Semaphore`]. Waits for `self`'s value to
@@ -84,10 +73,6 @@ impl Inner {
             value,
             waiters: LinkedList::new(),
         }
-    }
-
-    unsafe fn init(&mut self) {
-        self.waiters.init();
     }
 
     fn down(&mut self) {
