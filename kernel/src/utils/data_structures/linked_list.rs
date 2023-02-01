@@ -583,13 +583,55 @@ impl<'a, T> CursorMut<'a, T> {
     /// returning the newly created list.
     /// The cursor will remain at the current position.
     pub fn split_before(&mut self) -> LinkedList<T> {
-        todo!()
+        if let Some(cur) = self.cur {
+            unsafe {
+                let prev = (*cur.as_ptr()).prev;
+                if let Some(prev) = prev {
+                    (*prev.as_ptr()).next = None;
+                    (*cur.as_ptr()).prev = None;
+                }
+
+                let list = LinkedList {
+                    head: prev.and_then(|_| self.list.head),
+                    tail: prev,
+                    _marker: core::marker::PhantomData,
+                };
+
+                self.list.head = Some(cur);
+
+                list
+            }
+        } else {
+            // We are at the sentinel, in this case we become empty.
+            core::mem::replace(self.list, LinkedList::new())
+        }
     }
 
     /// Creates a new [`LinkedList`] by splitting the list after the cursor,
     /// returning the newly created list.
     /// The cursor will remain at the current position.
     pub fn split_after(&mut self) -> LinkedList<T> {
-        todo!()
+        if let Some(cur) = self.cur {
+            unsafe {
+                let next = (*cur.as_ptr()).next;
+                if let Some(next) = next {
+                    (*next.as_ptr()).prev = None;
+                    (*cur.as_ptr()).next = None;
+                }
+
+                let list = LinkedList {
+                    head: next,
+                    tail: next.and_then(|_| self.list.tail),
+                    _marker: core::marker::PhantomData,
+                };
+
+                self.list.tail = Some(cur);
+
+                list
+            }
+        } else {
+            // We are at the sentinel, in this case we become empty.
+            core::mem::replace(self.list, LinkedList::new())
+        }
     }
 }
