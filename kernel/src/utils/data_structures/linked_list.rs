@@ -459,36 +459,124 @@ impl<'a, T> CursorMut<'a, T> {
     }
 
     /// Removes the current element from the list, returning the node.
+    /// The cursor will move to the next node.
     pub fn remove_current(&mut self) -> Option<&'static mut Node> {
-        todo!()
+        if let Some(cur) = self.cur {
+            unsafe {
+                let cur = cur.as_ptr();
+                (*cur).prev.map(|prev| (*prev.as_ptr()).next = (*cur).next);
+                (*cur).next.map(|next| (*next.as_ptr()).prev = (*cur).prev);
+
+                if (*cur).prev.is_none() {
+                    self.list.head = (*cur).next;
+                }
+                if (*cur).next.is_none() {
+                    self.list.tail = (*cur).prev;
+                }
+
+                self.cur = (*cur).next;
+
+                Some(&mut *cur)
+            }
+        } else {
+            None
+        }
     }
 
     /// Inserts `node` before the cursor.
     /// If the cursor was at the sentinel, the node is appended to the tail of
     /// list.
-    pub fn insert_before(&mut self, _node: &'static mut Node) {
-        todo!()
+    pub fn insert_before(&mut self, node: &'static mut Node) {
+        let mut list = LinkedList::new();
+        list.push_back(node);
+        self.splice_before(list);
     }
 
     /// Inserts `node` after the cursor.
     /// If the cursor was at the sentinel, the node is appended to the head of
     /// the list.
-    pub fn insert_after(&mut self, _node: &'static mut Node) {
-        todo!()
+    pub fn insert_after(&mut self, node: &'static mut Node) {
+        let mut list = LinkedList::new();
+        list.push_back(node);
+        self.splice_after(list);
     }
 
     /// Inserts elements from `list` before the cursor, and make `list` empty.
     /// If the cursor was at the sentinel, the nodes are appended to the tail of
     /// the list.
-    pub fn splice_before(&mut self, mut _list: LinkedList<T>) {
-        todo!()
+    pub fn splice_before(&mut self, mut list: LinkedList<T>) {
+        if list.is_empty() {
+            return;
+        }
+
+        unsafe {
+            if let Some(cur) = self.cur {
+                let prev = (*cur.as_ptr()).prev;
+
+                if let Some(prev) = prev {
+                    // Insert `list` between `prev` and `cur`.
+                    (*prev.as_ptr()).next = list.head;
+                    (*list.head.unwrap().as_ptr()).prev = Some(prev); // `list` should be nonempty.
+                } else {
+                    // `list` becomes the prefix of us.
+                    self.list.head = list.head;
+                }
+
+                (*cur.as_ptr()).prev = list.tail;
+                (*list.tail.unwrap().as_ptr()).next = Some(cur); // `list` should be nonempty.
+
+                list.clear();
+            } else if let Some(tail) = self.list.tail {
+                // We are at the sentinel, so append the list to the tail.
+                (*tail.as_ptr()).next = list.head;
+                (*list.head.unwrap().as_ptr()).prev = Some(tail); // `list` should be nonempty.
+
+                self.list.tail = list.tail;
+                list.clear();
+            } else {
+                // We are empty, so we become the given list.
+                *self.list = list;
+            }
+        }
     }
 
     /// Inserts elements from `list` after the cursor, and make `list` empty.
     /// If the cursor was at the sentinel, the nodes are appended to the head of
     /// the list.
-    pub fn splice_after(&mut self, mut _list: LinkedList<T>) {
-        todo!()
+    pub fn splice_after(&mut self, mut list: LinkedList<T>) {
+        if list.is_empty() {
+            return;
+        }
+
+        unsafe {
+            if let Some(cur) = self.cur {
+                let next = (*cur.as_ptr()).next;
+
+                if let Some(next) = next {
+                    // Insert `list` between `cur` and `next`.
+                    (*next.as_ptr()).prev = list.tail;
+                    (*list.tail.unwrap().as_ptr()).next = Some(next); // `list` should be nonempty.
+                } else {
+                    // `list` becomes the suffix of us.
+                    self.list.tail = list.tail;
+                }
+
+                (*cur.as_ptr()).next = list.head;
+                (*list.head.unwrap().as_ptr()).prev = Some(cur); // `list` should be nonempty.
+
+                list.clear();
+            } else if let Some(head) = self.list.head {
+                // We are at the sentinel, so append the list to the head.
+                (*head.as_ptr()).prev = list.tail;
+                (*list.tail.unwrap().as_ptr()).next = Some(head); // `list` should be nonempty.
+
+                self.list.head = list.head;
+                list.clear();
+            } else {
+                // We are empty, so we become the given list.
+                *self.list = list;
+            }
+        }
     }
 
     /// Creates a new [`LinkedList`] by splitting the list before the cursor,
