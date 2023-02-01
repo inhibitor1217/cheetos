@@ -1,7 +1,7 @@
 /// Returns `&mut T` from `&mut Node<T>`, given the name of the [`Node`]'s
 /// field of the struct `T`.
 #[macro_export]
-macro_rules! get_element {
+macro_rules! get_list_element {
     ($node:expr, $container:ty, $field:ident) => {
         unsafe {
             use crate::{offset_of, utils::data_structures::linked_list};
@@ -21,8 +21,8 @@ type Link = Option<core::ptr::NonNull<Node>>;
 /// dynamicaly allocated memory. Instead, it is instrusive, that is, a
 /// potential list element must embed a [`Node`] member in its struct. All of
 /// the list functions operate on [`CursorMut`]s, which can be accessed by the
-/// references to the [`Node`]. The [`get_element`] macro allows conversion from
-/// the [`Node`] member back to the struct that contains it.
+/// references to the [`Node`]. The [`get_list_element`] macro allows conversion
+/// from the [`Node`] member back to the struct that contains it.
 ///
 /// The references returned from the list are `'static`, since the individual
 /// nodes are not owned by the list itself. Typical usecases of the
@@ -54,11 +54,11 @@ type Link = Option<core::ptr::NonNull<Node>>;
 ///
 /// ```rust
 /// for node in list {
-///     let foo = get_element!(node, Foo, elem);
+///     let foo = get_list_element!(node, Foo, elem);
 ///     // ...
 /// }
 /// ```
-#[derive(Debug)]
+#[derive(PartialEq, Eq)]
 pub struct LinkedList<T> {
     head: Link,
     tail: Link,
@@ -202,6 +202,172 @@ impl<T> LinkedList<T> {
             })
         }
     }
+
+    /// Returns an iterator over the elements of the list.
+    pub fn iter(&self) -> Iter<'_, T> {
+        Iter {
+            head: self.head,
+            tail: self.tail,
+            done: self.is_empty(),
+            _marker: core::marker::PhantomData,
+        }
+    }
+
+    /// Returns a mutable iterator over the elements of the list.
+    pub fn iter_mut(&self) -> IterMut<'_, T> {
+        IterMut {
+            head: self.head,
+            tail: self.tail,
+            done: self.is_empty(),
+            _marker: core::marker::PhantomData,
+        }
+    }
+}
+
+impl<T> Default for LinkedList<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T> Extend<&'static mut Node> for LinkedList<T> {
+    fn extend<I: IntoIterator<Item = &'static mut Node>>(&mut self, iter: I) {
+        for node in iter {
+            self.push_back(node)
+        }
+    }
+}
+
+impl<T> core::iter::FromIterator<&'static mut Node> for LinkedList<T> {
+    fn from_iter<I: IntoIterator<Item = &'static mut Node>>(iter: I) -> Self {
+        let mut list = Self::new();
+        list.extend(iter);
+        list
+    }
+}
+
+impl<T> core::fmt::Debug for LinkedList<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_list().entries(self).finish()
+    }
+}
+
+pub struct Iter<'a, T> {
+    head: Link,
+    tail: Link,
+    done: bool,
+    _marker: core::marker::PhantomData<&'a T>,
+}
+
+pub struct IterMut<'a, T> {
+    head: Link,
+    tail: Link,
+    done: bool,
+    _marker: core::marker::PhantomData<&'a mut T>,
+}
+
+impl<'a, T> Iter<'a, T> {
+    fn check_done(&mut self) {
+        self.done = self.head == self.tail;
+    }
+}
+
+impl<'a, T> IntoIterator for &'a LinkedList<T> {
+    type Item = &'static Node;
+
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'static Node;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            None
+        } else {
+            let node = self.head.map(|head| unsafe {
+                self.head = (*head.as_ptr()).next;
+                &*head.as_ptr()
+            });
+
+            self.check_done();
+
+            node
+        }
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.done {
+            None
+        } else {
+            let node = self.tail.map(|tail| unsafe {
+                self.tail = (*tail.as_ptr()).prev;
+                &*tail.as_ptr()
+            });
+
+            self.check_done();
+
+            node
+        }
+    }
+}
+
+impl<'a, T> IterMut<'a, T> {
+    fn check_done(&mut self) {
+        self.done = self.head == self.tail;
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut LinkedList<T> {
+    type Item = &'static mut Node;
+
+    type IntoIter = IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'static mut Node;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            None
+        } else {
+            let node = self.head.map(|head| unsafe {
+                self.head = (*head.as_ptr()).next;
+                &mut *head.as_ptr()
+            });
+
+            self.check_done();
+
+            node
+        }
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.done {
+            None
+        } else {
+            let node = self.tail.map(|tail| unsafe {
+                self.tail = (*tail.as_ptr()).prev;
+                &mut *tail.as_ptr()
+            });
+
+            self.check_done();
+
+            node
+        }
+    }
 }
 
 impl Node {
@@ -219,12 +385,6 @@ impl Node {
         assert!(self.prev.is_some() == self.next.is_some());
 
         self.prev.is_some()
-    }
-}
-
-impl<T> Default for LinkedList<T> {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::{
-    get_element,
+    get_list_element,
     threads::{
         interrupt,
         scheduler::SCHEDULER,
@@ -97,7 +97,7 @@ impl Inner {
         if let Some(node) = self.waiters.pop_front() {
             SCHEDULER
                 .lock()
-                .unblock(get_element!(node, Thread, sync_node));
+                .unblock(get_list_element!(node, Thread, sync_node));
         }
         self.value += 1;
     }
