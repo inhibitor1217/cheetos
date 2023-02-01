@@ -4,7 +4,7 @@
 macro_rules! get_list_element {
     ($node:expr, $container:ty, $field:ident) => {
         unsafe {
-            use crate::{offset_of, utils::data_structures::linked_list};
+            use $crate::{offset_of, utils::data_structures::linked_list};
 
             &mut *(($node as *mut linked_list::Node).offset(-offset_of!($container, $field))
                 as *mut $container)

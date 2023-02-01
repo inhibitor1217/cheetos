@@ -108,9 +108,8 @@ impl<'a, T> core::ops::DerefMut for MutexGuard<'a, T> {
 
 impl<'a, T> core::ops::Drop for MutexGuard<'a, T> {
     fn drop(&mut self) {
-        match self.prev_enabled {
-            Some(true) => enable(),
-            _ => {}
+        if let Some(true) = self.prev_enabled {
+            enable();
         }
     }
 }
