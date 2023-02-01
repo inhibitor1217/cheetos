@@ -24,6 +24,12 @@ type Link = Option<core::ptr::NonNull<Node>>;
 /// references to the [`Node`]. The [`get_element`] macro allows conversion from
 /// the [`Node`] member back to the struct that contains it.
 ///
+/// The references returned from the list are `'static`, since the individual
+/// nodes are not owned by the list itself. Typical usecases of the
+/// [`LinkedList`] are when we are allocating the nodes where the kernel manages
+/// it, so its lifetime can be extended indefinitely. The kernel is responsible
+/// for allocating and freeing the memory for the nodes.
+///
 /// ## Example
 ///
 /// Suppose there is a need for a list of `struct Foo`. `Foo` should
@@ -80,7 +86,7 @@ pub struct CursorMut<'a, T> {
 
 impl<T> LinkedList<T> {
     /// Creates an empty [`LinkedList`].
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             head: None,
             tail: None,
@@ -89,22 +95,22 @@ impl<T> LinkedList<T> {
     }
 
     /// Returns the first node of the list, `None` if the list is empty.
-    pub fn front(&self) -> Option<&Node> {
+    pub fn front(&self) -> Option<&'static Node> {
         unsafe { self.head.map(|head| &*head.as_ptr()) }
     }
 
     /// Returns the first node of the list, `None` if the list is empty.
-    pub fn front_mut(&mut self) -> Option<&mut Node> {
+    pub fn front_mut(&mut self) -> Option<&'static mut Node> {
         unsafe { self.head.map(|head| &mut *head.as_ptr()) }
     }
 
     /// Returns the last node of the list, `None` if the list is empty.
-    pub fn back(&self) -> Option<&Node> {
+    pub fn back(&self) -> Option<&'static Node> {
         unsafe { self.tail.map(|tail| &*tail.as_ptr()) }
     }
 
     /// Returns the last node of the list, `None` if the list is empty.
-    pub fn back_mut(&mut self) -> Option<&mut Node> {
+    pub fn back_mut(&mut self) -> Option<&'static mut Node> {
         unsafe { self.tail.map(|tail| &mut *tail.as_ptr()) }
     }
 
@@ -118,6 +124,84 @@ impl<T> LinkedList<T> {
         self.head = None;
         self.tail = None;
     }
+
+    /// Inserts a new node at the start of the list, so that the inserted node
+    /// becomes the new head.
+    pub fn push_front(&mut self, node: &'static mut Node) {
+        assert!(!node.is_element());
+
+        unsafe {
+            let link = core::ptr::NonNull::new_unchecked(node as *mut Node);
+            if let Some(head) = self.head {
+                (*head.as_ptr()).prev = Some(link);
+                (*link.as_ptr()).next = Some(head);
+            } else {
+                self.tail = Some(link);
+            }
+            self.head = Some(link);
+        }
+    }
+
+    /// Inserts a new node at the end of the list, so that the inserted node
+    /// becomes the new tail.
+    pub fn push_back(&mut self, node: &'static mut Node) {
+        assert!(!node.is_element());
+
+        unsafe {
+            let link = core::ptr::NonNull::new_unchecked(node as *mut Node);
+            if let Some(tail) = self.tail {
+                (*tail.as_ptr()).next = Some(link);
+                (*link.as_ptr()).prev = Some(tail);
+            } else {
+                self.head = Some(link);
+            }
+            self.tail = Some(link);
+        }
+    }
+
+    /// Removes a new node from the start of the list, returning the removed
+    /// node. Returns `None` if the list is empty.
+    pub fn pop_front(&mut self) -> Option<&'static mut Node> {
+        unsafe {
+            self.head.map(|head| {
+                let node = &mut *head.as_ptr();
+
+                self.head = node.next;
+                if let Some(head) = self.head {
+                    (*head.as_ptr()).prev = None;
+                } else {
+                    self.tail = None;
+                }
+
+                node.next = None;
+
+                assert!(!node.is_element());
+                node
+            })
+        }
+    }
+
+    /// Removes a new node from the back of the list, returning the removed
+    /// node. Returns `None `if the list is empty.
+    pub fn pop_back(&mut self) -> Option<&'static mut Node> {
+        unsafe {
+            self.tail.map(|tail| {
+                let node = &mut *tail.as_ptr();
+
+                self.tail = node.prev;
+                if let Some(tail) = self.tail {
+                    (*tail.as_ptr()).next = None;
+                } else {
+                    self.head = None;
+                }
+
+                node.prev = None;
+
+                assert!(!node.is_element());
+                node
+            })
+        }
+    }
 }
 
 impl Node {
@@ -127,6 +211,14 @@ impl Node {
             prev: None,
             next: None,
         }
+    }
+
+    /// Checks if this node is an element of some list.
+    fn is_element(&self) -> bool {
+        // Sanity check.
+        assert!(self.prev.is_some() == self.next.is_some());
+
+        self.prev.is_some()
     }
 }
 
