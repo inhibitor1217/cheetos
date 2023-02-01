@@ -222,6 +222,14 @@ impl<T> LinkedList<T> {
             _marker: core::marker::PhantomData,
         }
     }
+
+    /// Returns a new cursor placed before the first element of the list.
+    pub fn cursor_mut(&mut self) -> CursorMut<'_, T> {
+        CursorMut {
+            cur: None,
+            list: self,
+        }
+    }
 }
 
 impl<T> Default for LinkedList<T> {
@@ -386,10 +394,114 @@ impl Node {
 
         self.prev.is_some()
     }
+
+    /// Returns a cursor placed at this node.
+    pub fn cursor_mut<'a, T>(&mut self, list: &'a mut LinkedList<T>) -> CursorMut<'a, T> {
+        unsafe {
+            CursorMut {
+                cur: Some(core::ptr::NonNull::new_unchecked(self as *mut Node)),
+                list,
+            }
+        }
+    }
 }
 
 impl Default for Node {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<'a, T> CursorMut<'a, T> {
+    /// Move the cursor to the next element.
+    pub fn move_next(&mut self) {
+        if let Some(cur) = self.cur {
+            unsafe {
+                self.cur = (*cur.as_ptr()).next;
+            }
+        } else {
+            self.cur = self.list.head;
+        }
+    }
+
+    /// Move the cursor to the previous element.
+    pub fn move_prev(&mut self) {
+        if let Some(cur) = self.cur {
+            unsafe {
+                self.cur = (*cur.as_ptr()).prev;
+            }
+        } else {
+            self.cur = self.list.tail;
+        }
+    }
+
+    /// Retrieves the node at the cursor.
+    pub fn current(&mut self) -> Option<&'static mut Node> {
+        unsafe { self.cur.map(|node| &mut *node.as_ptr()) }
+    }
+
+    /// Retrieves the node after the cursor.
+    pub fn peek_next(&mut self) -> Option<&'static mut Node> {
+        unsafe {
+            self.cur
+                .map_or_else(|| self.list.head, |node| (*node.as_ptr()).next)
+                .map(|node| &mut *node.as_ptr())
+        }
+    }
+
+    /// Retrieves the node before the cursor.
+    pub fn peek_prev(&mut self) -> Option<&'static mut Node> {
+        unsafe {
+            self.cur
+                .map_or_else(|| self.list.tail, |node| (*node.as_ptr()).prev)
+                .map(|node| &mut *node.as_ptr())
+        }
+    }
+
+    /// Removes the current element from the list, returning the node.
+    pub fn remove_current(&mut self) -> Option<&'static mut Node> {
+        todo!()
+    }
+
+    /// Inserts `node` before the cursor.
+    /// If the cursor was at the sentinel, the node is appended to the tail of
+    /// list.
+    pub fn insert_before(&mut self, _node: &'static mut Node) {
+        todo!()
+    }
+
+    /// Inserts `node` after the cursor.
+    /// If the cursor was at the sentinel, the node is appended to the head of
+    /// the list.
+    pub fn insert_after(&mut self, _node: &'static mut Node) {
+        todo!()
+    }
+
+    /// Inserts elements from `list` before the cursor, and make `list` empty.
+    /// If the cursor was at the sentinel, the nodes are appended to the tail of
+    /// the list.
+    pub fn splice_before(&mut self, mut _list: LinkedList<T>) {
+        todo!()
+    }
+
+    /// Inserts elements from `list` after the cursor, and make `list` empty.
+    /// If the cursor was at the sentinel, the nodes are appended to the head of
+    /// the list.
+    pub fn splice_after(&mut self, mut _list: LinkedList<T>) {
+        todo!()
+    }
+
+    /// Creates a new [`LinkedList`] by splitting the list before the cursor,
+    /// returning the newly created list.
+    /// The cursor will remain at the current position.
+    pub fn split_before(&mut self) -> LinkedList<T> {
+        todo!()
+    }
+
+    /// Creates a new [`LinkedList`] by splitting the list after the cursor,
+    /// returning the newly created list.
+    /// The cursor will remain at the current position.
+    pub fn split_after(&mut self) -> LinkedList<T> {
+        todo!()
     }
 }
