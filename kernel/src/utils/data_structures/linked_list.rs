@@ -87,6 +87,37 @@ impl<T> LinkedList<T> {
             _marker: core::marker::PhantomData,
         }
     }
+
+    /// Returns the first node of the list, `None` if the list is empty.
+    pub fn front(&self) -> Option<&Node> {
+        unsafe { self.head.map(|head| &*head.as_ptr()) }
+    }
+
+    /// Returns the first node of the list, `None` if the list is empty.
+    pub fn front_mut(&mut self) -> Option<&mut Node> {
+        unsafe { self.head.map(|head| &mut *head.as_ptr()) }
+    }
+
+    /// Returns the last node of the list, `None` if the list is empty.
+    pub fn back(&self) -> Option<&Node> {
+        unsafe { self.tail.map(|tail| &*tail.as_ptr()) }
+    }
+
+    /// Returns the last node of the list, `None` if the list is empty.
+    pub fn back_mut(&mut self) -> Option<&mut Node> {
+        unsafe { self.tail.map(|tail| &mut *tail.as_ptr()) }
+    }
+
+    /// Returns `true` if the list is empty, `false` otherwise.
+    pub fn is_empty(&self) -> bool {
+        self.head.is_some()
+    }
+
+    /// Clears the list so that it is empty.
+    pub fn clear(&mut self) {
+        self.head = None;
+        self.tail = None;
+    }
 }
 
 impl Node {
