@@ -177,7 +177,7 @@ pub fn current_thread() -> &'static mut Thread {
 /// trying to create any threads.
 ///
 /// It is not safe to call [`current_thread()`] until this function finishes.
-pub fn setup_kernel_thread() {
+pub fn init() {
     assert!(interrupt::are_disabled());
 
     let mut kernel_thread = running_thread();

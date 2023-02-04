@@ -3,7 +3,7 @@ use crate::{println, threads};
 /// Initializes the kernel.
 pub fn init(boot_info: &'static bootloader_api::BootInfo) {
     // Initialize ourselves as a thread so we can use locks.
-    threads::setup_kernel_thread();
+    threads::init();
 
     greet(boot_info);
 }
