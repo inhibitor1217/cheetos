@@ -1,16 +1,17 @@
+use crate::println;
+
 use super::{control::are_disabled, mutex::Mutex, pic::PICS};
+
+/// An interrupt handler function.
+pub type InterruptHandler = fn(x86_64::structures::idt::InterruptStackFrame);
 
 #[derive(Copy, Clone)]
 struct InterruptHandlerRegistry {
     /// The handler registered for the interrupt.
-    handler: Option<x86_64::structures::idt::HandlerFunc>,
+    handler: Option<InterruptHandler>,
 
     /// Name for the interrupt, for debugging purposes.
     name: [u8; Self::NAME_LENGTH],
-
-    /// Number of unexpected invocations for this interrupt.
-    /// An unexpected invocation is one that has no registered `handler`.
-    unexpected_count: usize,
 }
 
 impl InterruptHandlerRegistry {
@@ -21,7 +22,6 @@ impl InterruptHandlerRegistry {
         Self {
             handler: None,
             name: [0; Self::NAME_LENGTH],
-            unexpected_count: 0,
         }
     }
 
@@ -99,23 +99,55 @@ impl InterruptHandlersRegistry {
         self.is_external_context
     }
 
-    fn handle_internal(&self, _frame: x86_64::structures::idt::InterruptStackFrame) {}
+    fn handle_internal(
+        &self,
+        frame: x86_64::structures::idt::InterruptStackFrame,
+        interrupt_id: u8,
+    ) {
+        self.handle(frame, interrupt_id);
+    }
 
     /// External interrupts are special.
     ///
     /// We only handle one at a time, so this function must be called with
     /// interrupts disabled. An external interrupt handler cannot sleep.
-    fn handle_external(&mut self, _frame: x86_64::structures::idt::InterruptStackFrame) {
+    fn handle_external(
+        &mut self,
+        frame: x86_64::structures::idt::InterruptStackFrame,
+        interrupt_id: u8,
+    ) {
         assert!(are_disabled());
         assert!(!self.is_external_context);
 
         self.is_external_context = true;
+
+        // Invoke the interrupt's handler.
+        self.handle(frame, interrupt_id);
 
         // Complete the processing of an external interrupt.
         assert!(are_disabled());
         assert!(self.is_external_context());
 
         self.is_external_context = false;
+    }
+
+    fn handle(&self, frame: x86_64::structures::idt::InterruptStackFrame, interrupt_id: u8) {
+        let registry = self.registries[interrupt_id as usize];
+
+        if let Some(handler) = registry.handler {
+            handler(frame);
+        } else if interrupt_id == 0x27 || interrupt_id == 0x2f {
+            // There is no handler, but this interrupt can trigger spuriously
+            // due to a hardware fault or hardware race condition. Ignore it.
+        } else {
+            // Handle an unexpected interrupt.
+            unsafe {
+                println!(
+                    "Unexpected interrupt {interrupt_id:#04x} {}",
+                    registry.name()
+                );
+            }
+        }
     }
 }
 
@@ -134,12 +166,12 @@ fn interrupt_handler(
     let is_external = interrupt_id >= InterruptHandlersRegistry::EXTERNAL_INTERRUPT_OFFSET as u8;
 
     if is_external {
-        REGISTRY.lock().handle_external(frame);
+        REGISTRY.lock().handle_external(frame, interrupt_id);
         unsafe {
             PICS.lock().end_of_interrupt(interrupt_id);
         }
     } else {
-        REGISTRY.peek().handle_internal(frame);
+        REGISTRY.peek().handle_internal(frame, interrupt_id);
     }
 }
 
