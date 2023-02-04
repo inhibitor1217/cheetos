@@ -8,7 +8,7 @@ pub fn init(boot_info: &'static bootloader_api::BootInfo) {
     greet(boot_info);
 
     // Initialize memory system.
-    threads::palloc_init(usize::MAX);
+    threads::palloc_init(boot_info, usize::MAX);
 
     // Initialize interrupt handlers.
     threads::interrupt_init();
