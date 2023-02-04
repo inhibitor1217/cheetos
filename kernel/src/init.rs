@@ -3,9 +3,11 @@ use crate::{println, threads};
 /// Initializes the kernel.
 pub fn init(boot_info: &'static bootloader_api::BootInfo) {
     // Initialize ourselves as a thread so we can use locks.
-    threads::init();
+    threads::thread_init();
 
     greet(boot_info);
+
+    threads::interrupt_init();
 }
 
 fn greet(boot_info: &bootloader_api::BootInfo) {

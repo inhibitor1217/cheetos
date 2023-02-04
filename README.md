@@ -47,6 +47,7 @@ Also, the following crates were referenced in this project.
 `cheetos` do not use these crates as direct dependency, but rather uses sources derived from them.
 
 - [conquer-once](https://crates.io/crates/conquer-once)
+- [pic8259](https://crates.io/crates/pic8259)
 - [uart_16550](https://crates.io/crates/uart_16550)
 
 # License
