@@ -464,8 +464,13 @@ impl<'a, T> CursorMut<'a, T> {
         if let Some(cur) = self.cur {
             unsafe {
                 let cur = cur.as_ptr();
-                (*cur).prev.map(|prev| (*prev.as_ptr()).next = (*cur).next);
-                (*cur).next.map(|next| (*next.as_ptr()).prev = (*cur).prev);
+
+                if let Some(prev) = (*cur).prev {
+                    (*prev.as_ptr()).next = (*cur).next;
+                }
+                if let Some(next) = (*cur).next {
+                    (*next.as_ptr()).prev = (*cur).prev;
+                }
 
                 if (*cur).prev.is_none() {
                     self.list.head = (*cur).next;
@@ -592,7 +597,7 @@ impl<'a, T> CursorMut<'a, T> {
                 }
 
                 let list = LinkedList {
-                    head: prev.and_then(|_| self.list.head),
+                    head: prev.and(self.list.head),
                     tail: prev,
                     _marker: core::marker::PhantomData,
                 };
@@ -621,7 +626,7 @@ impl<'a, T> CursorMut<'a, T> {
 
                 let list = LinkedList {
                     head: next,
-                    tail: next.and_then(|_| self.list.tail),
+                    tail: next.and(self.list.tail),
                     _marker: core::marker::PhantomData,
                 };
 
