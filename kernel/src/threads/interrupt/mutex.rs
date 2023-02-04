@@ -18,6 +18,11 @@ impl<T> Mutex<T> {
         }
     }
 
+    /// Returns a read-only reference without locking.
+    pub fn peek(&self) -> &T {
+        unsafe { &(*self.data.get()) }
+    }
+
     /// Locks the mutex and returns a mutable reference to the inner data.
     pub fn lock(&self) -> MutexGuard<T> {
         MutexGuard::new(self)
