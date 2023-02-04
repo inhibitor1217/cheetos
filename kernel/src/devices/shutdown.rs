@@ -12,9 +12,7 @@ const ISA_DEBUG_EXIT_CODE_SUCCESS: u8 = 0x31;
 pub fn power_off() -> ! {
     print_stats();
 
-    unsafe {
-        println!("Powering off...");
-    }
+    println!("Powering off...");
 
     let mut port = x86_64::instructions::port::Port::new(ISA_DEBUG_EXIT_PORT);
     unsafe {
@@ -29,9 +27,5 @@ pub fn power_off() -> ! {
 
 /// Prints statistics about `cheetos` kernel execution.
 fn print_stats() {
-    // We need to use `unsafe` here because we are accessing a mutable static
-    // variable.
-    unsafe {
-        crate::console::CONSOLE.print_stats();
-    }
+    crate::console::CONSOLE.lock().print_stats();
 }

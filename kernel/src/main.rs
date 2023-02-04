@@ -34,9 +34,7 @@ bootloader_api::entry_point!(kernel_main, config = &BOOTLOADER_CONFIG);
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     // Print the panic message and information.
-    unsafe {
-        kernel::println!("{info}");
-    }
+    kernel::println!("{info}");
 
     // Shut down the system.
     kernel::devices::shutdown::power_off()

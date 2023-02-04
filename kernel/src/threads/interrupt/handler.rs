@@ -141,12 +141,10 @@ impl InterruptHandlersRegistry {
             // due to a hardware fault or hardware race condition. Ignore it.
         } else {
             // Handle an unexpected interrupt.
-            unsafe {
-                println!(
-                    "Unexpected interrupt {interrupt_id:#04x} {}",
-                    registry.name()
-                );
-            }
+            println!(
+                "Unexpected interrupt {interrupt_id:#04x} {}",
+                registry.name()
+            );
         }
     }
 }

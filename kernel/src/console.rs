@@ -1,4 +1,5 @@
 use crate::devices::serial;
+use crate::threads::Mutex;
 
 /// Console writer for kernel.
 ///
@@ -54,20 +55,19 @@ impl core::fmt::Write for Console {
 
 /// Global console writer.
 ///
-/// This is a [mutable static variable](https://doc.rust-lang.org/book/ch19-01-unsafe-rust.html#accessing-or-modifying-a-mutable-static-variable),
-/// which is considered unsafe in Rust. However, in `kernel`, we are
-/// implementing synchronization ourselves, so we will ensure that only one
-/// thread can access [`CONSOLE`] at a time.
-///
-/// Will be replaced by a lock-protected mutable reference after we implement
-/// threads and synchronization.
-pub static mut CONSOLE: Console = Console::new();
+/// The serial layer do their own locking, so it's safe to call them at any
+/// time. But this [`Mutex`] is useful to prevent simultaneous [`print`] calls
+/// from mixing their output, which looks confusing.
+pub static CONSOLE: Mutex<Console> = Mutex::new(Console::new());
 
 #[doc(hidden)]
-pub unsafe fn _print(args: core::fmt::Arguments) {
+pub fn _print(args: core::fmt::Arguments) {
     use core::fmt::Write;
 
-    CONSOLE.write_fmt(args).expect("Failed to write to console");
+    CONSOLE
+        .lock()
+        .write_fmt(args)
+        .expect("Failed to write to console");
 }
 
 /// Prints to the console.

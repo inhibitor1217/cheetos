@@ -12,3 +12,5 @@ pub use self::thread::Status;
 pub use self::thread::Thread;
 
 pub use self::scheduler::SCHEDULER;
+
+pub use self::sync::lock::Mutex;

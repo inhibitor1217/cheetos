@@ -4,9 +4,7 @@
 fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     kernel::init(boot_info);
 
-    unsafe {
-        kernel::println!("Hello, world!");
-    }
+    kernel::println!("Hello, world!");
 
     kernel::devices::shutdown::power_off()
 }
