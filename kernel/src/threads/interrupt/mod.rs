@@ -1,4 +1,3 @@
-mod constants;
 mod control;
 mod handler;
 mod mutex;
@@ -10,13 +9,11 @@ pub use self::control::disable;
 pub use self::control::enable;
 
 pub use self::handler::is_external_handler_context;
-pub use self::handler::REGISTRY;
 
 pub use self::mutex::Mutex;
 pub use self::mutex::MutexGuard;
 
-static PICS: Mutex<pic::Pics> =
-    Mutex::new(pic::Pics::new(self::constants::EXTERNAL_INTERRUPT_OFFSET));
+use self::pic::PICS;
 
 /// Initializes the interrupt system.
 pub fn init() {
@@ -26,6 +23,6 @@ pub fn init() {
     }
 
     // Initialize the interrupt handler registry.
-    REGISTRY.lock().init();
-    REGISTRY.peek().load();
+    handler::REGISTRY.lock().init();
+    handler::REGISTRY.peek().load();
 }

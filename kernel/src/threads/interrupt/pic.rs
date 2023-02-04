@@ -1,7 +1,15 @@
+use super::mutex::Mutex;
+
 struct Pic {
     offset: u8,
     control: x86_64::instructions::port::Port<u8>,
     data: x86_64::instructions::port::Port<u8>,
+}
+
+impl Pic {
+    fn can_handle(&self, interrupt_id: u8) -> bool {
+        (self.offset..self.offset + 8).contains(&interrupt_id)
+    }
 }
 
 /// 8259A Programmable Interrupt Controller.
@@ -74,4 +82,30 @@ impl Pics {
         master.data.write(0x00);
         slave.data.write(0x00);
     }
+
+    /// Sends an end-of-interrupt signal to the PIC for the given
+    /// `interrupt_id`.
+    ///
+    /// If we don't acknowledge the IRQ, it will never be delivered to us again,
+    /// so it is important.
+    ///
+    /// # Safety
+    /// This function is unsafe because the caller must ensure that this
+    /// function is called at the tail of the external interrupt handler.
+    pub unsafe fn end_of_interrupt(&mut self, interrupt_id: u8) {
+        let Self(master, slave) = self;
+
+        assert!(master.can_handle(interrupt_id) || slave.can_handle(interrupt_id));
+
+        // Acknowledge master PIC.
+        master.control.write(0x20);
+
+        // Acknowledge slave PIC if this is a slave interrupt.
+        if slave.can_handle(interrupt_id) {
+            slave.control.write(0x20);
+        }
+    }
 }
+
+/// Global PIC registers.
+pub static PICS: Mutex<Pics> = Mutex::new(Pics::new(0x20));
