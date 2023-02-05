@@ -5,6 +5,7 @@ mod scheduler;
 mod sync;
 mod thread;
 
+pub use self::interrupt::REGISTRY as INTERRUPT_REGISTRY;
 pub use self::scheduler::SCHEDULER;
 
 pub use self::interrupt::init as interrupt_init;

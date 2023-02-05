@@ -95,6 +95,17 @@ impl InterruptHandlersRegistry {
         self.idt.load();
     }
 
+    /// Registers an interrupt handler to `interrupt_id` with `name`.
+    pub fn register(
+        &mut self,
+        interrupt_id: usize,
+        interrupt_handler: InterruptHandler,
+        name: &str,
+    ) {
+        self.registries[interrupt_id].handler = Some(interrupt_handler);
+        self.registries[interrupt_id].set_name(name);
+    }
+
     fn is_external_context(&self) -> bool {
         self.is_external_context
     }

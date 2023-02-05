@@ -10,6 +10,7 @@ pub use self::control::enable;
 
 pub use self::handler::is_external_handler_context;
 pub use self::handler::InterruptHandler;
+pub use self::handler::REGISTRY;
 
 pub use self::mutex::Mutex;
 pub use self::mutex::MutexGuard;

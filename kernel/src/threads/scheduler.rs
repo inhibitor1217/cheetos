@@ -78,6 +78,10 @@ impl Scheduler {
         interrupt::enable();
     }
 
+    /// Called by the timer interrupt handler at each timer tick.
+    /// Thus, this function runs in an external interrupt context.
+    pub fn tick(&mut self) {}
+
     /// Creates a new kernel thread named `name` with given initial `priority`.
     ///
     /// Returns the id of the thread, or `None` if creation fails.
