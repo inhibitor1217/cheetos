@@ -18,7 +18,7 @@ pub const PAGE_SIZE: usize = 4096;
 /// This address also marks the end of user programs' address space. Up to this
 /// point in memory, user programs are allowed to map whatever they like. At
 /// this point and above, the virtual address space belongs to the kernel.
-pub const PHYS_BASE: u64 = 0x10_000_000_000;
+pub const PHYS_BASE: u64 = 0x0100_0000_0000;
 
 /// Returns `true` if `vaddr` is a user virtual address.
 pub fn is_user_vaddr(vaddr: VirtAddr) -> bool {

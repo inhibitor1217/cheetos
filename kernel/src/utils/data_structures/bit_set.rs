@@ -1,6 +1,6 @@
 use core::{
     mem,
-    ops::{Index, IndexMut, Range},
+    ops::{Index, IndexMut},
     ptr,
     sync::atomic::Ordering,
 };
