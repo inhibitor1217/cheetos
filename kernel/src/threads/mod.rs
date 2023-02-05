@@ -1,3 +1,4 @@
+pub mod addr;
 mod interrupt;
 mod palloc;
 mod scheduler;

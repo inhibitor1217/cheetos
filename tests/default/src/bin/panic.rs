@@ -7,7 +7,7 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     panic!("I panicked!")
 }
 
-bootloader_api::entry_point!(kernel_main);
+kernel::entry_point!(kernel_main);
 
 #[cfg(not(test))]
 #[panic_handler]
