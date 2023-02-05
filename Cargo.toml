@@ -11,10 +11,12 @@ kernel = { path = "kernel", artifact = "bin", target = "x86_64-unknown-none" }
 [dev-dependencies]
 tests_default = { path = "tests/default", artifact = "bin", target = "x86_64-unknown-none" }
 tests_runner = { path = "tests/runner" }
+tests_threads = { path = "tests/threads", artifact = "bin", target = "x86_64-unknown-none" }
 
 [workspace]
 members = [
   "kernel",
   "tests/default",
   "tests/runner",
+  "tests/threads"
 ]

@@ -112,6 +112,7 @@ dependencies = [
  "kernel",
  "tests_default",
  "tests_runner",
+ "tests_threads",
 ]
 
 [[package]]
@@ -503,6 +504,14 @@ name = "tests_runner"
 version = "0.1.0"
 dependencies = [
  "bootloader",
+]
+
+[[package]]
+name = "tests_threads"
+version = "0.1.0"
+dependencies = [
+ "bootloader_api",
+ "kernel",
 ]
 
 [[package]]
