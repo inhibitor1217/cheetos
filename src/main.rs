@@ -1,5 +1,13 @@
 fn main() {
     let bios_path = core::env!("BIOS_PATH");
+    let args: Vec<String> = std::env::args().collect();
+
+    let mut opts = getopts::Options::new();
+    opts.optflag("g", "gdb", "run with gdb");
+    opts.optflag("h", "help", "print this help menu");
+
+    let program = args[0].clone();
+    let run_options = opts.parse(&args[1..]).unwrap();
 
     let mut cmd = std::process::Command::new("qemu-system-x86_64");
     cmd.arg("-drive");
@@ -12,6 +20,20 @@ fn main() {
     // This enables `isa-debug-exit` device.
     cmd.arg("-device");
     cmd.arg("isa-debug-exit,iobase=0xf4,iosize=0x04");
+
+    if run_options.opt_present("h") {
+        let brief = format!("Usage: {program} [options]");
+        print!("{}", opts.usage(&brief));
+        return;
+    }
+
+    if run_options.opt_present("gdb") {
+        cmd.arg("-s");
+        cmd.arg("-S");
+
+        println!("Run gdb in separate shell with following command:");
+        println!("gdb {} -ex \"target remote :1234\"", env!("KERNEL_PATH"));
+    }
 
     let mut child = cmd.spawn().unwrap();
     child.wait().unwrap();

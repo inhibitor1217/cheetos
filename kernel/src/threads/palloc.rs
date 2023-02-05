@@ -73,6 +73,8 @@ impl PageAllocator {
         self.user_pool
             .lock()
             .init(user_start.as_mut_ptr(), user_pages, "user pool");
+
+        println!();
     }
 
     /// Obtains a single free page and returns the allocated page.

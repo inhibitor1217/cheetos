@@ -10,4 +10,5 @@ fn main() {
         .unwrap();
 
     println!("cargo:rustc-env=BIOS_PATH={}", bios_path.display());
+    println!("cargo:rustc-env=KERNEL_PATH={}", kernel.display());
 }

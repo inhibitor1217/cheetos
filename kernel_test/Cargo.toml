@@ -1,0 +1,6 @@
+[package]
+name = "kernel_test"
+version = "0.1.0"
+
+[dependencies]
+kernel = { path = "../kernel" }

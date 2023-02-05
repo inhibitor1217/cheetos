@@ -16,6 +16,9 @@ pub fn init(boot_info: &'static bootloader_api::BootInfo) {
 
     // Start thread scheduler and enable interrupts.
     threads::SCHEDULER.lock().start();
+
+    println!("Boot complete.");
+    println!();
 }
 
 fn greet(boot_info: &bootloader_api::BootInfo) {

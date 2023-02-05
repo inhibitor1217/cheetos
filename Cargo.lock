@@ -109,7 +109,9 @@ name = "cheetos"
 version = "0.1.0"
 dependencies = [
  "bootloader",
+ "getopts",
  "kernel",
+ "kernel_test",
  "tests_default",
  "tests_runner",
  "tests_threads",
@@ -227,6 +229,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 
 [[package]]
+name = "getopts"
+version = "0.2.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14dbbfd5c71d70241ecf9e6f13737f7b5ce823821063188d7e46c41d371eebd5"
+dependencies = [
+ "unicode-width",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -298,6 +309,13 @@ dependencies = [
  "bitflags",
  "bootloader_api",
  "x86_64",
+]
+
+[[package]]
+name = "kernel_test"
+version = "0.1.0"
+dependencies = [
+ "kernel",
 ]
 
 [[package]]
@@ -512,6 +530,7 @@ version = "0.1.0"
 dependencies = [
  "bootloader_api",
  "kernel",
+ "kernel_test",
 ]
 
 [[package]]
