@@ -1,4 +1,4 @@
-use crate::{console::CONSOLE, println};
+use crate::{console::CONSOLE, println, threads::SCHEDULER};
 
 use super::timer::TIMER;
 
@@ -30,5 +30,6 @@ pub fn power_off() -> ! {
 /// Prints statistics about `cheetos` kernel execution.
 fn print_stats() {
     TIMER.lock().print_stats();
+    SCHEDULER.lock().print_stats();
     CONSOLE.lock().print_stats();
 }

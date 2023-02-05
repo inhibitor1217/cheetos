@@ -1,9 +1,11 @@
 use core::{arch::asm, ptr::NonNull};
 
+use crate::println;
+
 use super::{interrupt, thread};
 
 /// Switches from `cur`, which must be the running thread, to `next`, which
-/// must also be running [`switch_threads()`], returning `cur` in `next`'s
+/// must also be running [`switch_threads!`], returning `cur` in `next`'s
 /// context.
 macro_rules! switch_threads {
     ($cur:expr, $next:expr) => {{
@@ -41,12 +43,29 @@ macro_rules! switch_threads {
 #[derive(Debug)]
 pub struct Scheduler {
     idle_thread: Option<NonNull<thread::Thread>>,
+
+    /// Number of timer ticks spent idle.
+    idle_ticks: usize,
+
+    /// Number of timer ticks in kernel threads.
+    kernel_ticks: usize,
+
+    /// Number of timer ticks since last yield.
+    current_thread_ticks: usize,
 }
 
 impl Scheduler {
+    /// Number of timer ticks to give each thread.
+    const TIME_SLICE: usize = 4;
+
     /// Creates a new scheduler.
     pub const fn new() -> Self {
-        Self { idle_thread: None }
+        Self {
+            idle_thread: None,
+            idle_ticks: 0,
+            kernel_ticks: 0,
+            current_thread_ticks: 0,
+        }
     }
 
     /// Starts a preemptive thread scheduling by enabling interrupts.
@@ -80,7 +99,15 @@ impl Scheduler {
 
     /// Called by the timer interrupt handler at each timer tick.
     /// Thus, this function runs in an external interrupt context.
-    pub fn tick(&mut self) {}
+    pub fn tick(&mut self) {
+        // Update statistics.
+        if self.is_idle_thread() {
+            self.idle_ticks += 1;
+        } else {
+            self.kernel_ticks += 1;
+        }
+        self.current_thread_ticks += 1;
+    }
 
     /// Creates a new kernel thread named `name` with given initial `priority`.
     ///
@@ -123,6 +150,13 @@ impl Scheduler {
         self.schedule();
     }
 
+    /// If current thread has consumed enough ticks, enforce preemption.
+    pub fn preempt_current_thread(&mut self) {
+        if self.current_thread_ticks >= Self::TIME_SLICE {
+            self.yield_current_thread();
+        }
+    }
+
     /// Yields the CPU. The current thread is not put to sleep and may be
     /// scheduled again immediately at the scheduler's whim.
     pub fn yield_current_thread(&mut self) {
@@ -143,6 +177,14 @@ impl Scheduler {
         assert!(thread.status == thread::Status::Blocked);
 
         thread.status = thread::Status::Ready;
+    }
+
+    /// Prints thread statistics.
+    pub fn print_stats(&self) {
+        println!(
+            "Thread: {} idle ticks, {} kernel ticks.",
+            self.idle_ticks, self.kernel_ticks
+        );
     }
 
     /// Schedules a new process. At entry, interrupts must be off and the
@@ -201,6 +243,14 @@ impl Scheduler {
                 .expect("idle thread is not initialized")
                 .as_mut()
         }
+    }
+
+    /// Returns `true` if current thread is idle.
+    fn is_idle_thread(&self) -> bool {
+        let thread = thread::current_thread();
+
+        self.idle_thread
+            .map_or_else(|| false, |idle| idle.as_ptr() == thread)
     }
 }
 

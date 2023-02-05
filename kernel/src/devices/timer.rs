@@ -1,6 +1,6 @@
 use crate::{
     println,
-    threads::{InterruptMutex, INTERRUPT_REGISTRY, SCHEDULER},
+    threads::{interrupt, SCHEDULER},
 };
 
 use super::pit::{Channel, Mode, PIT};
@@ -14,7 +14,7 @@ pub fn init() {
     PIT.lock()
         .configure(Channel::OUT0, Mode::RateGenerator, FREQUENCY);
 
-    INTERRUPT_REGISTRY
+    interrupt::REGISTRY
         .lock()
         .register(0x20, interrupt, "8254 Timer");
 }
@@ -53,7 +53,7 @@ impl Timer {
 }
 
 /// Global timer.
-pub static TIMER: InterruptMutex<Timer> = InterruptMutex::new(Timer::new());
+pub static TIMER: interrupt::Mutex<Timer> = interrupt::Mutex::new(Timer::new());
 
 /// Timer interrupt handler.
 fn interrupt(_frame: x86_64::structures::idt::InterruptStackFrame) {

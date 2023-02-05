@@ -1,4 +1,4 @@
-use crate::println;
+use crate::{println, threads::SCHEDULER};
 
 use super::{control::are_disabled, mutex::Mutex, pic::PICS};
 
@@ -176,9 +176,14 @@ fn interrupt_handler(
 
     if is_external {
         REGISTRY.lock().handle_external(frame, interrupt_id);
+
         unsafe {
             PICS.lock().end_of_interrupt(interrupt_id);
         }
+
+        // Enforce preemption, by notifying the scheduler to schedule a new
+        // thread if necessary.
+        SCHEDULER.lock().preempt_current_thread();
     } else {
         REGISTRY.peek().handle_internal(frame, interrupt_id);
     }
