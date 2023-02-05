@@ -95,6 +95,9 @@ pub struct Thread {
     /// Name (for debugging purposes).
     name: [u8; Self::NAME_LENGTH],
 
+    /// Saved stack pointer.
+    pub stack: *mut u8,
+
     /// Priority.
     pub priority: u32,
 
@@ -105,7 +108,7 @@ pub struct Thread {
     pub sync_node: linked_list::Node,
 
     /// Detects stack overflow.
-    pub magic: u32,
+    magic: u32,
 }
 
 impl Thread {

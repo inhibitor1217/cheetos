@@ -1,4 +1,48 @@
+use core::arch::asm;
+
 use super::{interrupt, thread};
+
+/// Switches from `cur`, which must be the running thread, to `next`, which
+/// must also be running [`switch_threads()`], returning `cur` in `next`'s
+/// context.
+macro_rules! switch_threads {
+    ($cur:expr, $next:expr) => {{
+        unsafe {
+            asm!(
+                // Save caller's register state.
+                //
+                // Note that the SVR4 ABI alalows us to destry %rax, %rcx, %rdx,
+                // but requires us to preserve %rbx, %rbp, %rsi, and %rdi.
+                //
+                // This stack frame must match the one set up by `Thread::new` in size.
+                "push rbx",
+                "push rbp",
+                "push rsi",
+                "push rdi",
+                // Save current stack pointer to old thread's stack, if any.
+                "mov {0}, rsp",
+                // Restore stack pointer from new thread's stack.
+                "mov rsp, {1}",
+                // Restore caller's register state.
+                "pop rdi",
+                "pop rsi",
+                "pop rbp",
+                "pop rbx",
+                out(reg) $cur.stack,
+                in(reg) $next.stack,
+            );
+        }
+        $cur
+    }};
+}
+
+/// Entrypoint of a newly created thread. This function is called when the
+/// thread is first scheduled. Since [`switch_threads()`] only works
+/// when both threads are running, we need to switch to the thread's context
+/// manually.
+macro_rules! switch_entry {
+    () => {};
+}
 
 /// The scheduler. This module contains the implementation of the scheduler, which
 /// handles the context switching and choosings of the thread to run.
@@ -62,22 +106,11 @@ impl Scheduler {
         assert!(next.is_thread());
 
         if current != next {
-            let _prev = self.switch_threads(current, next);
+            let _prev = switch_threads!(current, next);
             // TODO: drop `prev` if it is dying
         }
 
         self.schedule_tail();
-    }
-
-    /// Switches from `cur`, which must be the running thread, to `next`, which
-    /// must also be running [`switch_threads()`], returning `cur` in `next`'s
-    /// context.
-    fn switch_threads(
-        &self,
-        _cur: &'static mut thread::Thread,
-        _next: &'static mut thread::Thread,
-    ) -> &'static mut thread::Thread {
-        todo!()
     }
 
     /// Completes a thread switch by activating the new thread's page tables,
@@ -119,11 +152,3 @@ impl Scheduler {
 /// It is protected behind the [`interrupt::Mutex`] to ensure
 /// that only one thread can access it at a time.
 pub static SCHEDULER: interrupt::Mutex<Scheduler> = interrupt::Mutex::new(Scheduler::new());
-
-/// Entrypoint of a newly created thread. This function is called when the
-/// thread is first scheduled. Since [`Scheduler::switch_threads()`] only works
-/// when both threads are running, we need to switch to the thread's context
-/// manually.
-pub fn switch_entry() {
-    todo!()
-}
