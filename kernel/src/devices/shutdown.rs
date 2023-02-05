@@ -1,4 +1,6 @@
-use crate::println;
+use crate::{console::CONSOLE, println};
+
+use super::timer::TIMER;
 
 // We configured this by running QEMU with
 // `-device isa-debug-exit,iobase=0xf4,iosize=0x04`.
@@ -27,5 +29,6 @@ pub fn power_off() -> ! {
 
 /// Prints statistics about `cheetos` kernel execution.
 fn print_stats() {
-    crate::console::CONSOLE.lock().print_stats();
+    TIMER.lock().print_stats();
+    CONSOLE.lock().print_stats();
 }
