@@ -12,7 +12,7 @@ pub struct Id(u32);
 
 impl Id {
     /// Returns a thread id to use for a new thread.
-    fn new() -> Self {
+    pub fn new() -> Self {
         let mut id_lock = THREAD_ID.lock();
         let id = *id_lock;
         *id_lock += 1;
@@ -120,14 +120,17 @@ impl Thread {
     /// Maximum length of a thread name.
     const NAME_LENGTH: usize = 16;
 
+    /// Lowest priority.
+    pub const PRIORITY_MIN: u32 = 0;
+
     /// Default priority.
-    const PRIORITY_DEFAULT: u32 = 31;
+    pub const PRIORITY_DEFAULT: u32 = 31;
 
     /// Highest priority.
-    const PRIORITY_MAX: u32 = 63;
+    pub const PRIORITY_MAX: u32 = 63;
 
     /// Does basic initialization as a blocked thread named `name`.
-    fn init(&mut self, name: &str, priority: u32) {
+    pub fn init(&mut self, name: &str, priority: u32) {
         assert!(priority <= Self::PRIORITY_MAX);
         assert!(name.len() <= Self::NAME_LENGTH);
 

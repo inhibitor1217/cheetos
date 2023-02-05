@@ -58,6 +58,10 @@ impl Semaphore {
     }
 }
 
+/// We can share [`Semaphore`]s between multiple threads, since it is protected
+/// by a interrupt mutex.
+unsafe impl Send for Semaphore {}
+
 /// Internal structure of a [`Semaphore`].
 ///
 /// Should be guarded with a mutex to ensure atomicity.

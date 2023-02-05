@@ -1,4 +1,4 @@
-use core::arch::asm;
+use core::{arch::asm, ptr::NonNull};
 
 use super::{interrupt, thread};
 
@@ -36,23 +36,71 @@ macro_rules! switch_threads {
     }};
 }
 
-/// Entrypoint of a newly created thread. This function is called when the
-/// thread is first scheduled. Since [`switch_threads()`] only works
-/// when both threads are running, we need to switch to the thread's context
-/// manually.
-macro_rules! switch_entry {
-    () => {};
-}
-
 /// The scheduler. This module contains the implementation of the scheduler, which
 /// handles the context switching and choosings of the thread to run.
 #[derive(Debug)]
-pub struct Scheduler {}
+pub struct Scheduler {
+    idle_thread: Option<NonNull<thread::Thread>>,
+}
 
 impl Scheduler {
     /// Creates a new scheduler.
     pub const fn new() -> Self {
-        Self {}
+        Self { idle_thread: None }
+    }
+
+    /// Starts a preemptive thread scheduling by enabling interrupts.
+    /// Also creates the idle thread.
+    pub fn start(&mut self) {
+        // Idle thread. Executes when no other thread is ready to run.
+        //
+        // The idle thread is initially put on the ready list. It will be
+        // scheduled once initially, and immediately blocks. After that, the
+        // idle thread never appears in the ready list. It is returned by
+        // `Scheduler::next_thread_to_run` as a special case when the ready list
+        // is empty.
+        let idle = move || {
+            loop {
+                // Let someone else run.
+                SCHEDULER.lock().block_current_thread();
+
+                // Wait for the next run.
+                x86_64::instructions::hlt();
+            }
+        };
+
+        // Create the idle thread.
+        self.idle_thread = self
+            .spawn(idle, "idle", thread::Thread::PRIORITY_MIN)
+            .map(|thread| unsafe { NonNull::new_unchecked(thread) });
+
+        // Start preemptive thread scheduling.
+        interrupt::enable();
+    }
+
+    /// Creates a new kernel thread named `name` with given initial `priority`.
+    ///
+    /// Returns the id of the thread, or `None` if creation fails.
+    ///
+    /// If `spawn` has been called, then the new thread may be scheduled before
+    /// `spawn` returns. Contrawise, the original thread may run for any amount
+    /// of time before the new thread is scheduled. Use a semaphore or some
+    /// other form of syncrhonization if you need to ensure ordering.
+    ///
+    /// The code provided sets the new thread's priority to `priority`, but no
+    /// actual priority scheduling is implemented.
+    /// Priority scheduling is the goal of Problem 1-3.
+    pub fn spawn<F>(
+        &mut self,
+        _f: F,
+        _name: &str,
+        _priority: u32,
+    ) -> Option<&'static mut thread::Thread>
+    where
+        F: FnOnce(),
+        F: Send + 'static,
+    {
+        None
     }
 
     /// Puts the current thread to sleep. It will not be scheduled again awoken
@@ -139,11 +187,16 @@ impl Scheduler {
     /// Chooses and returns the next thread to be scheduled. Should return a
     /// thread from the run queue, unless the run queue is empty. (If the
     /// running thread can continue running, then it will be in the run queue.)
-    /// If the run queue is empty, then choose [`idle_thread`].
+    /// If the run queue is empty, then choose `idle_thread`.
     fn next_thread_to_run(&self) -> &'static mut thread::Thread {
         // TODO: implement this properly. For now, always re-schedule the
-        // current thread.
-        thread::current_thread()
+        // idle thread.
+        unsafe {
+            &mut *self
+                .idle_thread
+                .expect("idle thread is not initialized")
+                .as_mut()
+        }
     }
 }
 
