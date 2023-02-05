@@ -121,7 +121,15 @@ impl PageAllocator {
         };
 
         if flags.contains(AllocateFlags::ZERO) {
-            // TODO: memset(pages_start.start_address(), 0, count * PAGE_SIZE);
+            if let Some(pages_start) = pages_start {
+                let start: *mut u8 = pages_start.start_address().as_mut_ptr();
+                // We are allocating the physical memory page already mapped
+                // the virtual memory, and it is aligned at the page, so it is
+                // okay.
+                unsafe {
+                    ptr::write_bytes(start, 0, count * PAGE_SIZE);
+                }
+            }
         }
 
         pages_start
