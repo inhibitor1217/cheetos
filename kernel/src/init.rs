@@ -1,4 +1,4 @@
-use crate::{println, threads};
+use crate::{devices, println, threads};
 
 /// Initializes the kernel.
 pub fn init(boot_info: &'static bootloader_api::BootInfo) {
@@ -12,6 +12,7 @@ pub fn init(boot_info: &'static bootloader_api::BootInfo) {
 
     // Initialize interrupt handlers.
     threads::interrupt_init();
+    devices::timer::init();
 
     // Start thread scheduler and enable interrupts.
     threads::SCHEDULER.lock().start();
