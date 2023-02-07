@@ -13,6 +13,7 @@ kernel::entry_point!(kernel_main);
 
 #[cfg(not(test))]
 #[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    kernel::println!("{info}");
     kernel::devices::shutdown::power_off()
 }
