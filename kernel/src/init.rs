@@ -1,4 +1,7 @@
-use crate::{devices, println, threads};
+use crate::{
+    devices, println,
+    threads::{self},
+};
 
 /// Initializes the kernel.
 pub fn init(boot_info: &'static bootloader_api::BootInfo) {
@@ -22,18 +25,14 @@ pub fn init(boot_info: &'static bootloader_api::BootInfo) {
 }
 
 fn greet(boot_info: &bootloader_api::BootInfo) {
-    println!("cheetos booting...");
+    let free_region = boot_info
+        .memory_regions
+        .iter()
+        .find(|region| region.kind == bootloader_api::info::MemoryRegionKind::Usable)
+        .unwrap();
 
-    println!();
-    println!("BOOT INFO:");
-    println!("memory_regions = {:?}", boot_info.memory_regions.as_ref());
-    println!("framebuffer = {:?}", boot_info.framebuffer);
-    println!(
-        "physical_memory_offset = {:?}",
-        boot_info.physical_memory_offset
-    );
-    println!("recursive_index = {:?}", boot_info.recursive_index);
-    println!("rsdp_addr = {:?}", boot_info.rsdp_addr);
-    println!("tls_template = {:?}", boot_info.tls_template);
+    let ram_size = free_region.end - free_region.start;
+
+    println!("cheetos booting with {} kB RAM.", ram_size >> 10);
     println!();
 }
