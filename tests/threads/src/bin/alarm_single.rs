@@ -6,7 +6,9 @@ static TEST_NAME: &str = "alarm_single";
 fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     kernel::init(boot_info);
 
-    kernel_test::fail!("BOO");
+    kernel_test::test_sleep!(5, 1);
+
+    kernel::devices::shutdown::power_off();
 }
 
 kernel::entry_point!(kernel_main);
