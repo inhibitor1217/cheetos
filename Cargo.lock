@@ -515,6 +515,7 @@ version = "0.1.0"
 dependencies = [
  "bootloader_api",
  "kernel",
+ "kernel_test",
 ]
 
 [[package]]

@@ -36,5 +36,5 @@ kernel::entry_point!(kernel_main);
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     kernel::println!("{info}");
-    kernel::devices::shutdown::power_off()
+    kernel::devices::shutdown::power_off_with_failure()
 }

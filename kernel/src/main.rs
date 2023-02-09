@@ -26,5 +26,5 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     kernel::println!("{info}");
 
     // Shut down the system.
-    kernel::devices::shutdown::power_off()
+    kernel::devices::shutdown::power_off_with_failure()
 }

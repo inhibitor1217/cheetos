@@ -12,6 +12,9 @@ const QEMU_BIN: &str = "qemu-system-x86_64";
 // exit with exit code `(0x31 << 1) | 1`, hence `0x63`.
 const QEMU_EXIT_CODE_SUCCESS: i32 = 0x63;
 
+// In constrast, the kernel writes `0x42` to the I/O port on failure.
+const QEMU_EXIT_CODE_FAILURE: i32 = 0x85;
+
 const QEMU_ARGS: &[&str] = &[
     // This enables `isa-debug-exit` device.
     "-device",
@@ -45,6 +48,7 @@ pub fn run_test_kernel(kernel_binary_path: &str) {
 
     match child_output.status.code() {
         Some(QEMU_EXIT_CODE_SUCCESS) => (),
+        Some(QEMU_EXIT_CODE_FAILURE) => panic!("Test failed"),
         Some(code) => panic!("QEMU exited with code {}", code),
         None => panic!("QEMU was killed by a signal"),
     }

@@ -4,7 +4,9 @@
 fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     kernel::init(boot_info);
 
-    panic!("I panicked!")
+    panic!("I panicked!");
+
+    kernel::devices::shutdown::power_off_with_failure();
 }
 
 kernel::entry_point!(kernel_main);

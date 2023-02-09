@@ -5,3 +5,4 @@ version = "0.1.0"
 [dependencies]
 bootloader_api = { git = "https://github.com/inhibitor1217/bootloader", tag = "v0.11.1-alpha.0" }
 kernel = { path = "../../kernel" }
+kernel_test = { path = "../../kernel_test" }
