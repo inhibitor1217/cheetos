@@ -1,5 +1,42 @@
-/// Initializes the memory allocation functionality.
-pub fn init() {}
+use crate::utils::data_structures::linked_list::{LinkedList, Node};
+
+use super::addr::PAGE_SIZE;
+use super::sync::lock::Mutex;
+
+/// Free block.
+#[derive(Debug)]
+#[repr(C)]
+struct Block {
+    node: Node,
+}
+
+/// Descriptor of the list of fixed sized blocks for allocation.
+#[derive(Debug)]
+struct Descriptor {
+    /// Size of each element in bytes.
+    block_size: usize,
+
+    /// Number of blocks in an arena.
+    blocks_per_arena: usize,
+
+    /// List of free blocks.
+    free_list: LinkedList<Block>,
+}
+
+/// Arena owning the descriptor.
+#[derive(Debug)]
+struct Arena {
+    /// Always set to `Arena::MAGIC` for detecting corruption.
+    magic: u32,
+
+    /// Free blocks; pages in big block.
+    free_cnt: usize,
+}
+
+impl Arena {
+    /// Magic number for detecting arena corruption.
+    const MAGIC: u32 = 0x8a547eed;
+}
 
 /// A simple memory alloocator.
 ///
@@ -28,12 +65,36 @@ pub fn init() {}
 /// too big to fit in a single page with a descriptor. We handle those by
 /// allocating contiguous pages with the page allocator and sticking the
 /// allocation size at the beginning of the allocated block's arena header.
-pub struct Allocator {}
+pub struct Allocator {
+    descriptors: [Mutex<Descriptor>; Self::DESCRIPTORS_SIZE],
+}
+
+macro_rules! make_descriptor {
+    ($block_size:expr) => {{
+        Mutex::new(Descriptor {
+            block_size: $block_size,
+            blocks_per_arena: (PAGE_SIZE - core::mem::size_of::<Arena>()) / $block_size,
+            free_list: LinkedList::new(),
+        })
+    }};
+}
 
 impl Allocator {
+    const DESCRIPTORS_SIZE: usize = 7;
+
     /// Creates a new allocator.
     pub const fn new() -> Self {
-        Self {}
+        Self {
+            descriptors: [
+                make_descriptor!(1 << 4),
+                make_descriptor!(1 << 5),
+                make_descriptor!(1 << 6),
+                make_descriptor!(1 << 7),
+                make_descriptor!(1 << 8),
+                make_descriptor!(1 << 9),
+                make_descriptor!(1 << 10),
+            ],
+        }
     }
 }
 
