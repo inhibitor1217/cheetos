@@ -18,9 +18,13 @@ impl<T> Mutex<T> {
         }
     }
 
-    /// Returns a read-only reference without locking.
-    pub fn peek(&self) -> &T {
-        unsafe { &(*self.data.get()) }
+    /// Returns a static reference, without locking the element.
+    ///
+    /// # Safety
+    /// This function is unsafe because the caller must manage the data race
+    /// with the mutable reference acquired by `lock`ing the mutex.
+    pub unsafe fn peek(&'static self) -> &'static T {
+        &(*self.data.get())
     }
 
     /// Locks the mutex and returns a mutable reference to the inner data.

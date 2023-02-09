@@ -185,12 +185,12 @@ fn interrupt_handler(
         // thread if necessary.
         SCHEDULER.lock().preempt_current_thread();
     } else {
-        REGISTRY.peek().handle_internal(frame, interrupt_id);
+        REGISTRY.lock().handle_internal(frame, interrupt_id);
     }
 }
 
 /// Returns `true` during processing of an external interrupt, and `false` at
 /// all other times.
 pub fn is_external_handler_context() -> bool {
-    REGISTRY.peek().is_external_context()
+    REGISTRY.lock().is_external_context()
 }

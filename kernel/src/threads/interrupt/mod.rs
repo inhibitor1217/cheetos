@@ -26,5 +26,7 @@ pub fn init() {
 
     // Initialize the interrupt handler registry.
     handler::REGISTRY.lock().init();
-    handler::REGISTRY.peek().load();
+    unsafe {
+        handler::REGISTRY.peek().load();
+    }
 }
