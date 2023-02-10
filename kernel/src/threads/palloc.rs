@@ -84,6 +84,7 @@ impl PageAllocator {
     /// - If `AllocateFlags::ZERO` is set, the page is filled with zeros.
     ///
     /// If no pages are available, returns `None`.
+    #[must_use = "The allocated page should be used and freed, otherwise it would leak the memory"]
     pub fn get_page(&self, flags: AllocateFlags) -> Option<Page> {
         self.get_pages(1, flags)
     }
@@ -95,6 +96,7 @@ impl PageAllocator {
     /// - If `AllocateFlags::ZERO` is set, the page is filled with zeros.
     ///
     /// If too few pages are available, returns `None`.
+    #[must_use = "The allocated page should be used and freed, otherwise it would leak the memory"]
     pub fn get_pages(&self, count: usize, flags: AllocateFlags) -> Option<Page> {
         if count == 0 {
             return None;
