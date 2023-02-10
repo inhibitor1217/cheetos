@@ -1,7 +1,7 @@
 use core::ops::DerefMut;
 
-use crate::get_list_element;
 use crate::utils::data_structures::linked_list::{LinkedList, Node};
+use crate::{div_round_up, get_list_element};
 
 use super::addr::{Page, VirtAddr, PAGE_SIZE};
 use super::palloc::{AllocateFlags, PAGE_ALLOCATOR};
@@ -47,7 +47,8 @@ struct Arena {
     /// Set to `None` for large blocks.
     descriptor: Option<core::ptr::NonNull<Descriptor>>,
 
-    /// Free blocks; pages in big block.
+    /// Free blocks in arenas with descriptors;
+    /// Number of pages for arenas with a big block.
     free_cnt: usize,
 }
 
@@ -68,6 +69,23 @@ impl Arena {
         arena.magic = Arena::MAGIC;
         arena.descriptor = Some(core::ptr::NonNull::new_unchecked(descriptor));
         arena.free_cnt = (*descriptor).blocks_per_arena;
+
+        arena
+    }
+
+    /// Initializes a new [`Arena`] at the start of an allocated `page`
+    /// without [`Descriptor`].
+    ///
+    /// # Safety
+    /// This function is unsafe because the caller must ensure `page` is already
+    /// allocated and not in use.
+    unsafe fn from_large_block(page: Page, num_pages: usize) -> &'static mut Arena {
+        let arena: *mut Arena = page.start_address().as_mut_ptr();
+        let arena = &mut (*arena);
+
+        arena.magic = Arena::MAGIC;
+        arena.descriptor = None;
+        arena.free_cnt = num_pages;
 
         arena
     }
@@ -232,8 +250,16 @@ unsafe impl core::alloc::GlobalAlloc for Allocator {
             // `required_block_size` is too big for any descriptor.
             // Allocate enough pages to hold` required_block_size` plus an
             // arena.
-
-            todo!()
+            let num_pages = div_round_up!(
+                required_block_size + core::mem::size_of::<Arena>(),
+                PAGE_SIZE
+            );
+            if let Some(page_start) = PAGE_ALLOCATOR.get_pages(num_pages, AllocateFlags::empty()) {
+                let arena = Arena::from_large_block(page_start, num_pages);
+                (arena as *mut Arena).offset(1).cast::<u8>()
+            } else {
+                core::ptr::null_mut()
+            }
         }
     }
 
