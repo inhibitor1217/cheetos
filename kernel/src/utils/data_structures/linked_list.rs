@@ -116,7 +116,7 @@ impl<T> LinkedList<T> {
 
     /// Returns `true` if the list is empty, `false` otherwise.
     pub fn is_empty(&self) -> bool {
-        self.head.is_some()
+        self.head.is_none()
     }
 
     /// Clears the list so that it is empty.

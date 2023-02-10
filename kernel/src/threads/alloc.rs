@@ -202,15 +202,16 @@ unsafe impl core::alloc::GlobalAlloc for Allocator {
     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
         let required_block_size = layout.size().max(layout.align());
 
-        if let Some(descriptor) = self.get_descriptor(required_block_size) {
-            let mut descriptor = descriptor.lock();
+        if let Some(descriptor_mutex) = self.get_descriptor(required_block_size) {
+            let mut guard = descriptor_mutex.lock();
+            let descriptor = guard.deref_mut();
 
             // If the free list is empty, create a new `Arena`.
             if descriptor.free_list.is_empty() {
                 // Allocate a new page.
                 if let Some(page) = PAGE_ALLOCATOR.get_page(AllocateFlags::empty()) {
                     // Initialize an `Arena` and add its blocks to the free list.
-                    let arena = Arena::from_descriptor(page, descriptor.deref_mut());
+                    let arena = Arena::from_descriptor(page, descriptor);
                     for block in arena.blocks() {
                         descriptor.free_list.push_back(&mut block.node);
                     }
