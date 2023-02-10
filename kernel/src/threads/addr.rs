@@ -41,3 +41,9 @@ pub fn vtop(vaddr: VirtAddr) -> PhysAddr {
     assert!(is_kernel_vaddr(vaddr));
     PhysAddr::new(vaddr.as_u64() - PHYS_BASE)
 }
+
+/// Returns the page number.
+pub fn page_number(page: Page) -> u64 {
+    const PAGE_BITS: usize = 12;
+    return page.start_address().as_u64() >> PAGE_BITS;
+}

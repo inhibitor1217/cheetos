@@ -36,6 +36,20 @@ struct Descriptor {
     free_list: LinkedList<Block>,
 }
 
+/// Metadata for the [`Descriptor`], contained in the [`Arena`].
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+struct ArenaDescriptor {
+    /// Descriptor index.
+    index: usize,
+
+    /// Size of the blocks in this arena.
+    block_size: usize,
+
+    /// Number of blocks in this arena.
+    blocks_per_arena: usize,
+}
+
 /// Arena owning the descriptor.
 #[derive(Debug)]
 #[repr(C)]
@@ -43,9 +57,9 @@ struct Arena {
     /// Always set to `Arena::MAGIC` for detecting corruption.
     magic: u32,
 
-    /// The link to the descriptor which owns this arena.
+    /// The metadata for the descriptor which owns this arena.
     /// Set to `None` for large blocks.
-    descriptor: Option<core::ptr::NonNull<Descriptor>>,
+    descriptor: Option<ArenaDescriptor>,
 
     /// Free blocks in arenas with descriptors;
     /// Number of pages for arenas with a big block.
@@ -62,13 +76,13 @@ impl Arena {
     /// # Safety
     /// This function is unsafe because the caller must ensure `page` is
     /// already allocated and not already in use.
-    unsafe fn from_descriptor(page: Page, descriptor: *mut Descriptor) -> &'static mut Self {
+    unsafe fn from_descriptor(page: Page, descriptor: ArenaDescriptor) -> &'static mut Self {
         let arena: *mut Arena = page.start_address().as_mut_ptr();
         let arena = &mut (*arena);
 
         arena.magic = Arena::MAGIC;
-        arena.descriptor = Some(core::ptr::NonNull::new_unchecked(descriptor));
-        arena.free_cnt = (*descriptor).blocks_per_arena;
+        arena.descriptor = Some(descriptor);
+        arena.free_cnt = descriptor.blocks_per_arena;
 
         arena
     }
@@ -121,14 +135,10 @@ impl<'a> Iterator for ArenaBlocksIterMut<'a> {
     type Item = &'a mut Block;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let descriptor = unsafe {
-            &(*self
-                .arena
-                .descriptor
-                .expect("Arena with large blocks, cannot iterate")
-                .as_ptr())
-        };
-
+        let descriptor = self
+            .arena
+            .descriptor
+            .expect("Cannot iterate through blocks in arena with large blocks");
         if self.index >= descriptor.blocks_per_arena {
             None
         } else {
@@ -209,27 +219,34 @@ impl Allocator {
     }
 
     /// Finds a descriptor which is suitable for allocating block of `size`.
-    fn get_descriptor(&self, size: usize) -> Option<&Mutex<Descriptor>> {
+    fn get_descriptor(&self, size: usize) -> Option<(usize, &Mutex<Descriptor>)> {
         (0..Self::DESCRIPTORS_SIZE)
             .find(|&i| size <= Self::DESCRIPTOR_BLOCK_SIZE[i])
-            .map(|i| &self.descriptors[i])
+            .map(|i| (i, &self.descriptors[i]))
     }
 }
 
 unsafe impl core::alloc::GlobalAlloc for Allocator {
     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
-        let required_block_size = layout.size().max(layout.align());
-
-        if let Some(descriptor_mutex) = self.get_descriptor(required_block_size) {
+        let required_block_size = layout.size();
+        if let Some((descriptor_index, descriptor_mutex)) = self.get_descriptor(required_block_size)
+        {
             let mut guard = descriptor_mutex.lock();
             let descriptor = guard.deref_mut();
 
             // If the free list is empty, create a new `Arena`.
             if descriptor.free_list.is_empty() {
                 // Allocate a new page.
-                if let Some(page) = PAGE_ALLOCATOR.get_page(AllocateFlags::empty()) {
+                if let Some(page) = PAGE_ALLOCATOR.get_page(AllocateFlags::ZERO) {
                     // Initialize an `Arena` and add its blocks to the free list.
-                    let arena = Arena::from_descriptor(page, descriptor);
+                    let arena = Arena::from_descriptor(
+                        page,
+                        ArenaDescriptor {
+                            index: descriptor_index,
+                            block_size: descriptor.block_size,
+                            blocks_per_arena: descriptor.blocks_per_arena,
+                        },
+                    );
                     for block in arena.blocks() {
                         descriptor.free_list.push_back(&mut block.node);
                     }
@@ -254,7 +271,7 @@ unsafe impl core::alloc::GlobalAlloc for Allocator {
                 required_block_size + core::mem::size_of::<Arena>(),
                 PAGE_SIZE
             );
-            if let Some(page_start) = PAGE_ALLOCATOR.get_pages(num_pages, AllocateFlags::empty()) {
+            if let Some(page_start) = PAGE_ALLOCATOR.get_pages(num_pages, AllocateFlags::ZERO) {
                 let arena = Arena::from_large_block(page_start, num_pages);
                 (arena as *mut Arena).offset(1).cast::<u8>()
             } else {
@@ -263,8 +280,41 @@ unsafe impl core::alloc::GlobalAlloc for Allocator {
         }
     }
 
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
-        todo!()
+    unsafe fn dealloc(&self, ptr: *mut u8, _layout: core::alloc::Layout) {
+        let block = &mut (*ptr.cast::<Block>());
+        let arena = block.arena();
+
+        if let Some(arena_descriptor) = arena.descriptor {
+            // It's an arena for a normal block.
+            let mut guard = self.descriptors[arena_descriptor.index].lock();
+            let descriptor = guard.deref_mut();
+
+            // Clear the block to help detect use-after-free bugs.
+            core::ptr::write_bytes(ptr, 0xcc, descriptor.block_size);
+
+            // Add the block to free list.
+            block.node = Node::new();
+            descriptor.free_list.push_front(&mut block.node);
+            arena.free_cnt += 1;
+
+            // If the arena is now entirely unused, free the entire page.
+            if arena.free_cnt == descriptor.blocks_per_arena {
+                for block in arena.blocks() {
+                    block
+                        .node
+                        .cursor_mut(&mut descriptor.free_list)
+                        .remove_current();
+                }
+
+                let page = Page::from_start_address(VirtAddr::from_ptr(arena)).unwrap();
+                PAGE_ALLOCATOR.free_page(page);
+            }
+        } else {
+            // It's an arena for a large block.
+            let page = Page::from_start_address(VirtAddr::from_ptr(arena)).unwrap();
+            let page_count = arena.free_cnt;
+            PAGE_ALLOCATOR.free_pages(page, page_count);
+        }
     }
 }
 

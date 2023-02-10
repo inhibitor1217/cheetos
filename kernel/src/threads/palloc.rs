@@ -3,7 +3,7 @@ use core::ptr;
 use crate::{div_round_up, println, utils::data_structures::bit_set::BitSet};
 
 use super::{
-    addr::{ptov, Page, PhysAddr, VirtAddr, PAGE_SIZE},
+    addr::{page_number, ptov, Page, PhysAddr, VirtAddr, PAGE_SIZE},
     sync::lock,
 };
 
@@ -114,11 +114,12 @@ impl PageAllocator {
         };
 
         let pages_start = {
-            let pool = pool.lock();
-            let used_map = unsafe { &mut (*pool.used_map.unwrap().as_ptr()) };
+            let mut pool = pool.lock();
+            let inner = &mut pool.inner.as_mut().unwrap();
+            let used_map = unsafe { &mut (*inner.used_map.as_ptr()) };
             if let Some(page_index) = used_map.scan(0, count, false) {
                 used_map.set_many(page_index, count, true);
-                Some(pool.base.unwrap() + page_index as u64)
+                Some(inner.base + page_index as u64)
             } else {
                 None
             }
@@ -138,26 +139,51 @@ impl PageAllocator {
 
         pages_start
     }
+
+    /// Frees the `page`.
+    ///
+    /// # Safety
+    /// This function is unsafe because the caller must ensure that `page`
+    /// is indeed a [`Page`] allocated from `Allocator::get_page` or
+    /// `Allocator::get_pages`.
+    pub unsafe fn free_page(&self, page: Page) {
+        self.free_pages(page, 1);
+    }
+
+    /// Frees `count` pages starting from `page_start`.
+    ///
+    /// # Safety
+    /// This function is unsafe because the caller must ensure that `count`
+    /// pages are indeed [`Page`]s allocated from `Allocator::get_page` or
+    /// `Allocator::get_pages`.
+    pub unsafe fn free_pages(&self, page_start: Page, count: usize) {
+        if count == 0 {
+            return;
+        }
+
+        todo!()
+    }
 }
 
 /// A memory pool.
 struct Pool {
+    inner: Option<PoolInner>,
+}
+
+struct PoolInner {
     /// [`BitSet`] of free pages.
     ///
     /// We'll store the data structure itself at the start of the available
     /// region. Therefore it is stored as a pointer, not a owned data structure.
-    used_map: Option<ptr::NonNull<BitSet>>,
+    used_map: ptr::NonNull<BitSet>,
 
     /// Starting page of the available region in the pool.
-    base: Option<Page>,
+    base: Page,
 }
 
 impl Pool {
     const fn new() -> Self {
-        Self {
-            used_map: None,
-            base: None,
-        }
+        Self { inner: None }
     }
 
     fn init(&mut self, buf: *mut u8, page_count: usize, name: &str) {
@@ -167,15 +193,25 @@ impl Pool {
 
         println!("{page_count} pages available in {name}.");
 
-        unsafe {
+        let used_map = unsafe {
             // Initialize the pool.
-            self.used_map = Some(ptr::NonNull::from(BitSet::from_buffer(
-                page_count, buf, bytes_used,
-            )));
-        }
+            ptr::NonNull::from(BitSet::from_buffer(page_count, buf, bytes_used))
+        };
 
         let base = VirtAddr::new(buf as u64) + bytes_used;
-        self.base = Some(Page::from_start_address(base).unwrap());
+        let base = Page::from_start_address(base).unwrap();
+
+        self.inner = Some(PoolInner { used_map, base });
+    }
+
+    fn contains_page(&self, page: Page) -> bool {
+        if let Some(PoolInner { base, used_map }) = self.inner {
+            let start_page = page_number(base);
+            let end_page = unsafe { start_page + (*used_map.as_ptr()).size() as u64 };
+            (start_page..end_page).contains(&page_number(page))
+        } else {
+            false
+        }
     }
 }
 
