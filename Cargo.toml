@@ -17,6 +17,11 @@ tests_default = { path = "tests/default", artifact = "bin", target = "x86_64-unk
 tests_runner = { path = "tests/runner" }
 tests_threads = { path = "tests/threads", artifact = "bin", target = "x86_64-unknown-none" }
 
+[profile.dev]
+opt-level = 3
+overflow-checks = false
+panic = "abort"
+
 [workspace]
 members = [
   "kernel",
