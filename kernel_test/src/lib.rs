@@ -6,8 +6,8 @@ pub mod threads;
 /// Prints message prefixed with the name of the test.
 #[macro_export]
 macro_rules! msg {
-    ($($arg:tt)*) => {
-        kernel::print!("({}) ", crate::TEST_NAME);
+    ($test_name:expr, $($arg:tt)*) => {
+        kernel::print!("({}) ", $test_name);
         kernel::println!($($arg)*);
     }
 }
@@ -15,16 +15,16 @@ macro_rules! msg {
 /// Prints a message indicating the current test passed.
 #[macro_export]
 macro_rules! pass {
-    () => {
-        kernel::println!("({}) PASS", crate::TEST_NAME);
+    ($test_name:expr) => {
+        kernel::println!("({}) PASS", $test_name);
     };
 }
 
 /// Prints failure message, then panics the kernel.
 #[macro_export]
 macro_rules! fail {
-    ($($arg:tt)*) => {
-        kernel::print!("({}) FAIL: ", crate::TEST_NAME);
+    ($test_name:expr, $($arg:tt)*) => {
+        kernel::print!("({}) FAIL: ", $test_name);
         kernel::println!($($arg)*);
         panic!("test failed");
     };
