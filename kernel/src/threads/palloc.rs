@@ -113,17 +113,7 @@ impl PageAllocator {
             kernel_pool
         };
 
-        let pages_start = {
-            let mut pool = pool.lock();
-            let inner = &mut pool.inner.as_mut().unwrap();
-            let used_map = unsafe { &mut (*inner.used_map.as_ptr()) };
-            if let Some(page_index) = used_map.scan(0, count, false) {
-                used_map.set_many(page_index, count, true);
-                Some(inner.base + page_index as u64)
-            } else {
-                None
-            }
-        };
+        let pages_start = pool.lock().allocate(count);
 
         if flags.contains(AllocateFlags::ZERO) {
             if let Some(pages_start) = pages_start {
@@ -161,7 +151,21 @@ impl PageAllocator {
             return;
         }
 
-        todo!()
+        let pool = if self.kernel_pool.lock().contains_page(page_start) {
+            &self.kernel_pool
+        } else if self.user_pool.lock().contains_page(page_start) {
+            &self.user_pool
+        } else {
+            panic!("Tried to free the page that has not been allocated");
+        };
+
+        // Clear the block to help detect use-after-free bugs.
+        let start: *mut u8 = page_start.start_address().as_mut_ptr();
+        unsafe {
+            ptr::write_bytes(start, 0xcc, PAGE_SIZE * count);
+        }
+
+        pool.lock().free(page_start, count);
     }
 }
 
@@ -204,6 +208,14 @@ impl Pool {
         self.inner = Some(PoolInner { used_map, base });
     }
 
+    fn page_index(&self, page: Page) -> Option<usize> {
+        if let Some(PoolInner { base, .. }) = self.inner {
+            Some((page_number(page) - page_number(base)) as usize)
+        } else {
+            None
+        }
+    }
+
     fn contains_page(&self, page: Page) -> bool {
         if let Some(PoolInner { base, used_map }) = self.inner {
             let start_page = page_number(base);
@@ -211,6 +223,31 @@ impl Pool {
             (start_page..end_page).contains(&page_number(page))
         } else {
             false
+        }
+    }
+
+    fn allocate(&mut self, count: usize) -> Option<Page> {
+        if let Some(PoolInner { base, used_map }) = self.inner {
+            let used_map = unsafe { &mut (*used_map.as_ptr()) };
+            if let Some(page_index) = used_map.scan(0, count, false) {
+                used_map.set_many(page_index, count, true);
+                Some(base + (page_index as u64))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn free(&mut self, page_start: Page, count: usize) {
+        if let Some(PoolInner { used_map, .. }) = self.inner {
+            let page_index = self.page_index(page_start).unwrap();
+            let used_map = unsafe { &mut (*used_map.as_ptr()) };
+            assert!(!used_map.contains(page_index, count, false));
+            used_map.set_many(page_index, count, false);
+        } else {
+            panic!("Cannot free pages from uninitialized pool");
         }
     }
 }

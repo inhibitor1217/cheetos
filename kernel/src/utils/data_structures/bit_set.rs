@@ -143,7 +143,7 @@ impl BitSet {
 
     /// Returns `true` if any bits in `start..start + count` range are set to
     /// `value`.
-    fn contains(&self, start: usize, count: usize, value: bool) -> bool {
+    pub fn contains(&self, start: usize, count: usize, value: bool) -> bool {
         (start..start + count).any(|i| self.get(i) == value)
     }
 }

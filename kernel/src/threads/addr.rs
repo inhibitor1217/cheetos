@@ -45,5 +45,5 @@ pub fn vtop(vaddr: VirtAddr) -> PhysAddr {
 /// Returns the page number.
 pub fn page_number(page: Page) -> u64 {
     const PAGE_BITS: usize = 12;
-    return page.start_address().as_u64() >> PAGE_BITS;
+    page.start_address().as_u64() >> PAGE_BITS
 }
