@@ -2,9 +2,13 @@
 
 Welcome to `cheetos` project. This a a simple operating system framework for the `x86_64` architecture.
 
-`cheetos` uses [`bootloader`](https://crates.io/crates/bootloader) crate for most of the heavy lifting.
+`cheetos` relies on [`bootloader`](https://crates.io/crates/bootloader) crate for most of the heavy lifting. `bootloader` creates a bootable disk image, create page tables, does the memory mapping, etc, so that we can focus on developing the kernel itself.
 
-> TODO: Add more descriptions
+The structure of the project is highly inspired by the [pintos](https://www.scs.stanford.edu/22wi-cs212/pintos/pintos.html) project. However, since the original project was written in C, some parts of the code are not idiomatic in Rust. `cheetos` tries to address this issue by rewriting some of the code to match the interface from the standard library of Rust. (e.g. [`Mutex`](https://doc.rust-lang.org/std/sync/struct.Mutex.html) for synchonization, [`GlobalAlloc`](https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html) for memory allocation, etc.)
+
+> `cheetos` is still under development!
+
+> TODO: Add more description
 
 ## Getting started
 
@@ -33,13 +37,29 @@ Under the hood, it works like this:
 - In `src/main.rs`, we use the built disk image to run the operating system in a qemu virtual machine.
 - Only if the sources in `kernel` crate is changed, `cargo` will rebuild the project.
 
+### Debugging
+
+You can use `gdb` to debug `pintos`. The following command will start `cheetos` in a qemu virtual machine, and wait for `gdb` to connect to it.
+
+```bash
+cargo run -- -g
+```
+
+### Testing
+
+`pintos` contains a rich test suite (it is an educational operating system project, after all). `cheetos` ported the test suite to Rust, and you can run it with the following command.
+
+```bash
+cargo test
+```
+
 # Acknowledgements
 
 This project is highly inspired by the following projects:
 
 - [pintos](https://www.scs.stanford.edu/22wi-cs212/pintos/pintos.html)
 - [Phil Opp's Blog](https://os.phil-opp.com/)
-- [`rust-osdev` organization](https://github.com/rust-osdev)
+- [`rust-osdev`](https://github.com/rust-osdev)
 
 Simply said, `cheetos` is an attempt to port Pintos into Rust.
 
