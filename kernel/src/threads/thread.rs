@@ -39,13 +39,13 @@ pub enum Status {
 
 /// A kernel thread or a user process.
 ///
-/// Each thread structure is stored in its own 4 KiB page. The thread structure
-/// itself sits at the very bottom of the page (at offset 0). The reset of the
-/// page is reserved for the thread's kernel stack, which grows downward from
-/// the top of the page (at offset 4 KiB). Here's an illustration:
+/// Each thread structure is stored in 4 pages. The thread structure itself sits
+/// at the very bottom of the stack (at offset 0). The rest of the page is
+/// reserved for the thread's kernel stack, which grows downward from the top of
+/// the pages (at offset 16 KiB). Here's an illustration:
 ///
 /// ```
-///    4 kB +---------------------------------+
+///   16 kB +---------------------------------+
 ///         |          kernel stack           |
 ///         |                |                |
 ///         |                |                |
@@ -63,8 +63,8 @@ pub enum Status {
 ///         |              magic              |
 ///         |                :                |
 ///         |                :                |
-///         |               name              |
 ///         |              status             |
+///         |                id               |
 ///    0 kB +---------------------------------+
 /// ```
 ///
@@ -195,17 +195,17 @@ pub fn init() {
 /// Returns the current thread.
 pub fn running_thread() -> &'static mut Thread {
     // Copy the CPU's stack pointer into `rsp`, and then round that down to the
-    // start of the page. Because `Thread` is always at the beginning of a page
-    // and the stack pointer is somewhere in the middle, this locates the
+    // stack size (16 KiB). Because `Thread` is always at the beginning of the
+    // stack and the stack pointer is somewhere in the middle, this locates the
     // current `Thread`.
-    let rsp: u64;
-    unsafe {
+    const STACK_MASK: u64 = 0x3fff;
+
+    let rsp = unsafe {
+        let rsp: u64;
         core::arch::asm!("mov {}, rsp", out(reg) rsp);
-        let rsp = x86_64::VirtAddr::new(rsp);
-        &mut *x86_64::structures::paging::Page::<x86_64::structures::paging::Size4KiB>::containing_address(
-            rsp,
-        )
-        .start_address()
-        .as_mut_ptr()
-    }
+        rsp
+    };
+
+    let thread = rsp & !STACK_MASK;
+    unsafe { &mut *(thread as *mut Thread) }
 }
