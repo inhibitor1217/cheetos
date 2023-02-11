@@ -1,6 +1,6 @@
 use core::{arch::asm, ptr::NonNull};
 
-use crate::{devices::timer::TIMER, println};
+use crate::println;
 
 use super::{interrupt, thread};
 

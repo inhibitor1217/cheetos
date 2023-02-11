@@ -21,6 +21,12 @@ impl Id {
     }
 }
 
+impl Default for Id {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// States in a thread's life cycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Status {
