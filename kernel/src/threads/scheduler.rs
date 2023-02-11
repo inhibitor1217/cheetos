@@ -165,15 +165,6 @@ impl Scheduler {
         self.schedule();
     }
 
-    /// Make current thread sleep for approximately `ticks` timer ticks.
-    /// Interrupt must be turned on.
-    pub fn sleep(&mut self, ticks: usize) {
-        let start = TIMER.lock().ticks();
-        while TIMER.lock().elapsed(start) < ticks {
-            self.yield_current_thread();
-        }
-    }
-
     /// Transitions a blocked thread to the ready-to-run state.
     /// This is an error if the thread is not blocked.
     /// (Use [`yield_current_thread()`] to make the running thread ready.)
@@ -201,7 +192,7 @@ impl Scheduler {
     /// other state. This function finds another thread to run and switches to
     /// it.
     fn schedule(&self) {
-        let current = thread::current_thread();
+        let current = thread::running_thread();
         let next = self.next_thread_to_run();
 
         assert!(interrupt::are_disabled());
@@ -246,7 +237,7 @@ impl Scheduler {
     fn next_thread_to_run(&self) -> &'static mut thread::Thread {
         // TODO: implement this properly. For now, always re-schedule the
         // current thread.
-        thread::current_thread()
+        thread::running_thread()
     }
 
     /// Returns `true` if current thread is idle.

@@ -63,9 +63,7 @@ pub fn sleep(test_name: &str, thread_cnt: usize, iterations: usize) {
                     let sleep_until = start_ticks + i * duration;
                     let current_ticks = kernel::devices::timer::TIMER.lock().ticks();
 
-                    kernel::threads::SCHEDULER
-                        .lock()
-                        .sleep(sleep_until - current_ticks);
+                    kernel::devices::timer::sleep(sleep_until - current_ticks);
 
                     output.lock().push(id);
                 }
@@ -76,9 +74,7 @@ pub fn sleep(test_name: &str, thread_cnt: usize, iterations: usize) {
     }
 
     // Wait long enough for all the threads to finish.
-    kernel::threads::SCHEDULER
-        .lock()
-        .sleep(thread_cnt * iterations * 10 + 200);
+    kernel::devices::timer::sleep(thread_cnt * iterations * 10 + 200);
 
     // Print completion order.
     let mut product = 0;

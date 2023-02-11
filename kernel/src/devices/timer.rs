@@ -55,6 +55,17 @@ impl Timer {
 /// Global timer.
 pub static TIMER: interrupt::Mutex<Timer> = interrupt::Mutex::new(Timer::new());
 
+/// Make current thread sleep for approximately `ticks` timer ticks.
+/// Interrupt must be turned on.
+pub fn sleep(ticks: usize) {
+    assert!(interrupt::are_enabled());
+
+    let start = TIMER.lock().ticks();
+    while TIMER.lock().elapsed(start) < ticks {
+        SCHEDULER.lock().yield_current_thread();
+    }
+}
+
 /// Timer interrupt handler.
 fn interrupt(_frame: x86_64::structures::idt::InterruptStackFrame) {
     TIMER.lock().tick();
