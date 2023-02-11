@@ -29,8 +29,18 @@ const QEMU_ARGS: &[&str] = &[
     "--no-reboot",
 ];
 
+pub struct TestOptions {
+    pub gdb: bool,
+}
+
+impl TestOptions {
+    pub fn default() -> TestOptions {
+        TestOptions { gdb: false }
+    }
+}
+
 /// Runs a kernel on QEMU with test setup.
-pub fn run_test_kernel(kernel_binary_path: &str) {
+pub fn run_test_kernel(kernel_binary_path: &str, options: TestOptions) {
     let kernel_binary = PathBuf::from(kernel_binary_path);
     let kernel_bios = kernel_binary.with_extension("mbr");
     bootloader::BiosBoot::new(&kernel_binary)
@@ -41,6 +51,21 @@ pub fn run_test_kernel(kernel_binary_path: &str) {
     cmd.arg("-drive");
     cmd.arg(format!("format=raw,file={}", kernel_bios.display()));
     cmd.args(QEMU_ARGS);
+
+    if options.gdb {
+        /// Virtual address where kernel ELF is loaded by bootloader.
+        const KERNEL_VADDR_OFFSET: u64 = 0x8000000000;
+
+        cmd.arg("-s");
+        cmd.arg("-S");
+
+        println!("Run gdb in separate shell with following command:");
+        println!(
+            "gdb -ex \"target remote :1234\" -ex \"exec-file {kernel}\" -ex \"add-symbol-file {kernel} -o {offset:#0x}\"",
+            kernel = kernel_binary_path,
+            offset = KERNEL_VADDR_OFFSET
+        );
+    }
 
     let child_output = cmd.output().unwrap();
     std::io::stdout().write_all(&child_output.stdout).unwrap();
