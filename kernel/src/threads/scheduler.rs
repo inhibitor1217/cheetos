@@ -236,13 +236,8 @@ impl Scheduler {
     /// If the run queue is empty, then choose `idle_thread`.
     fn next_thread_to_run(&self) -> &'static mut thread::Thread {
         // TODO: implement this properly. For now, always re-schedule the
-        // idle thread.
-        unsafe {
-            &mut *self
-                .idle_thread
-                .expect("idle thread is not initialized")
-                .as_mut()
-        }
+        // current thread.
+        thread::current_thread()
     }
 
     /// Returns `true` if current thread is idle.
