@@ -99,6 +99,10 @@ impl<T> Mutex<T> {
 /// [`Lock`].
 unsafe impl<T> Sync for Mutex<T> {}
 
+/// [`Mutex`] is [`Send`] because the underlying mutable data is protected by a
+/// [`Lock`].
+unsafe impl<T> Send for Mutex<T> {}
+
 /// An RAII guard of a critical section protected by a [`Lock`].
 pub struct MutexGuard<'a, T> {
     mutex: &'a Mutex<T>,

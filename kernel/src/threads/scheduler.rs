@@ -1,6 +1,6 @@
 use core::{arch::asm, ptr::NonNull};
 
-use crate::println;
+use crate::{devices::timer::TIMER, println};
 
 use super::{interrupt, thread};
 
@@ -163,6 +163,17 @@ impl Scheduler {
         let current = thread::current_thread();
         current.status = thread::Status::Ready;
         self.schedule();
+    }
+
+    /// Make current thread sleep for approximately `ticks` timer ticks.
+    /// Interrupt must be turned on.
+    pub fn sleep(&mut self, ticks: usize) {
+        assert!(interrupt::are_enabled());
+
+        let start = TIMER.lock().ticks();
+        while TIMER.lock().elapsed(start) < ticks {
+            self.yield_current_thread();
+        }
     }
 
     /// Transitions a blocked thread to the ready-to-run state.

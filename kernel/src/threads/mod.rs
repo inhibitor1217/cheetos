@@ -4,7 +4,7 @@ pub mod interrupt;
 mod palloc;
 mod scheduler;
 mod sync;
-mod thread;
+pub mod thread;
 
 pub use self::scheduler::SCHEDULER;
 
