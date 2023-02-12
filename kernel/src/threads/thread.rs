@@ -135,6 +135,12 @@ impl Thread {
     /// Highest priority.
     pub const PRIORITY_MAX: u32 = 63;
 
+    /// Thread stack size; 16 KiB.
+    pub const STACK_SIZE: usize = 0x4000;
+
+    /// Bitmask for retrieving the [`Thread`] structure from stack pointer.
+    pub const STACK_MASK: u64 = 0x3fff;
+
     /// Does basic initialization as a blocked thread named `name`.
     pub fn init(&mut self, name: &str, priority: u32) {
         assert!(priority <= Self::PRIORITY_MAX);
@@ -143,6 +149,7 @@ impl Thread {
         self.status = Status::Blocked;
         self.name = [0; Self::NAME_LENGTH];
         self.name[..name.len()].copy_from_slice(name.as_bytes());
+        self.stack = unsafe { (self as *mut Thread).cast::<u8>().add(Self::STACK_SIZE) };
         self.priority = priority;
         self.magic = Self::MAGIC;
     }
@@ -204,14 +211,12 @@ pub fn running_thread() -> &'static mut Thread {
     // stack size (16 KiB). Because `Thread` is always at the beginning of the
     // stack and the stack pointer is somewhere in the middle, this locates the
     // current `Thread`.
-    const STACK_MASK: u64 = 0x3fff;
-
     let rsp = unsafe {
         let rsp: u64;
         core::arch::asm!("mov {}, rsp", out(reg) rsp);
         rsp
     };
 
-    let thread = rsp & !STACK_MASK;
+    let thread = rsp & !Thread::STACK_MASK;
     unsafe { &mut *(thread as *mut Thread) }
 }
