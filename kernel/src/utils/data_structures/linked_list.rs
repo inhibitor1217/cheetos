@@ -6,8 +6,9 @@ macro_rules! get_list_element {
         unsafe {
             use $crate::{offset_of, utils::data_structures::linked_list};
 
-            &mut *(($node as *mut linked_list::Node).offset(-offset_of!($container, $field))
-                as *mut $container)
+            &mut *(($node as *mut linked_list::Node)
+                .cast::<u8>()
+                .offset(-offset_of!($container, $field)) as *mut $container)
         }
     };
 }
