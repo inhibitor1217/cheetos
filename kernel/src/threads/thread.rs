@@ -110,8 +110,15 @@ pub struct Thread {
     /// Number of timer ticks since last yield.
     pub ticks: u32,
 
+    /// Linked list node contained by the all-threads list of the thread
+    /// scheduler.
+    pub all_list_node: linked_list::Node,
+
+    /// Linked list node contained by the ready-list of the thread scheduler,
+    /// wait list of some semaphore.
+    ///
     /// Shared between `thread` and `sync`.
-    pub sync_node: linked_list::Node,
+    pub status_list_node: linked_list::Node,
 
     /// Detects stack overflow.
     magic: u32,
@@ -151,6 +158,9 @@ impl Thread {
         self.name[..name.len()].copy_from_slice(name.as_bytes());
         self.stack = unsafe { (self as *mut Thread).cast::<u8>().add(Self::STACK_SIZE) };
         self.priority = priority;
+        self.ticks = 0;
+        self.all_list_node = linked_list::Node::new();
+        self.status_list_node = linked_list::Node::new();
         self.magic = Self::MAGIC;
     }
 

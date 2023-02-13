@@ -1,6 +1,6 @@
-use core::{arch::asm, ptr::NonNull};
+use core::ptr::NonNull;
 
-use crate::println;
+use crate::{get_list_element, println, utils::data_structures::linked_list::LinkedList};
 
 use super::{interrupt, thread};
 
@@ -9,31 +9,31 @@ use super::{interrupt, thread};
 /// context.
 macro_rules! switch_threads {
     ($cur:expr, $next:expr) => {{
-        unsafe {
-            asm!(
-                // Save caller's register state.
-                //
-                // Note that the SVR4 ABI alalows us to destry %rax, %rcx, %rdx,
-                // but requires us to preserve %rbx, %rbp, %rsi, and %rdi.
-                //
-                // This stack frame must match the one set up by `Thread::new` in size.
-                "push rbx",
-                "push rbp",
-                "push rsi",
-                "push rdi",
-                // Save current stack pointer to old thread's stack, if any.
-                "mov {0}, rsp",
-                // Restore stack pointer from new thread's stack.
-                "mov rsp, {1}",
-                // Restore caller's register state.
-                "pop rdi",
-                "pop rsi",
-                "pop rbp",
-                "pop rbx",
-                out(reg) $cur.stack,
-                in(reg) $next.stack,
-            );
-        }
+        // unsafe {
+        //     asm!(
+        //         // Save caller's register state.
+        //         //
+        //         // Note that the SVR4 ABI alalows us to destry %rax, %rcx, %rdx,
+        //         // but requires us to preserve %rbx, %rbp, %rsi, and %rdi.
+        //         //
+        //         // This stack frame must match the one set up by `Thread::new` in size.
+        //         "push rbx",
+        //         "push rbp",
+        //         "push rsi",
+        //         "push rdi",
+        //         // Save current stack pointer to old thread's stack, if any.
+        //         "mov {0}, rsp",
+        //         // Restore stack pointer from new thread's stack.
+        //         "mov rsp, {1}",
+        //         // Restore caller's register state.
+        //         "pop rdi",
+        //         "pop rsi",
+        //         "pop rbp",
+        //         "pop rbx",
+        //         out(reg) $cur.stack,
+        //         in(reg) $next.stack,
+        //     );
+        // }
         $cur
     }};
 }
@@ -42,7 +42,20 @@ macro_rules! switch_threads {
 /// handles the context switching and choosings of the thread to run.
 #[derive(Debug)]
 pub struct Scheduler {
+    /// The pointer to the idle thread, which runs when no other thread is ready
+    /// to run.
+    ///
+    /// The idle thread is initialized when the scheduler starts.
+    /// See `Scheduler::start`.
     idle_thread: Option<NonNull<thread::Thread>>,
+
+    /// List of all threads. Threads are added to the list when they are first
+    /// scheduled, and removed when they exit.
+    all_list: LinkedList<thread::Thread>,
+
+    /// List of threads in `thread::status::Ready` state, that is, threads that
+    /// are ready to run but not actually running.
+    ready_list: LinkedList<thread::Thread>,
 
     /// Number of timer ticks spent idle.
     idle_ticks: usize,
@@ -62,6 +75,8 @@ impl Scheduler {
     pub const fn new() -> Self {
         Self {
             idle_thread: None,
+            all_list: LinkedList::new(),
+            ready_list: LinkedList::new(),
             idle_ticks: 0,
             kernel_ticks: 0,
             current_thread_ticks: 0,
@@ -71,6 +86,10 @@ impl Scheduler {
     /// Starts a preemptive thread scheduling by enabling interrupts.
     /// Also creates the idle thread.
     pub fn start(&mut self) {
+        // Add the "main" kernel thread to the all-threads list.
+        self.all_list
+            .push_back(&mut thread::current_thread().all_list_node);
+
         // Idle thread. Executes when no other thread is ready to run.
         //
         // The idle thread is initially put on the ready list. It will be
@@ -140,7 +159,7 @@ impl Scheduler {
     /// This function must be called with interrupts turned off. It is usually a
     /// better idea to use one of the synchronization primitives in
     /// `threads::sync` instead.
-    pub fn block_current_thread(&self) {
+    pub fn block_current_thread(&mut self) {
         assert!(!interrupt::is_external_handler_context());
         assert!(interrupt::are_disabled());
 
@@ -162,6 +181,7 @@ impl Scheduler {
     pub fn yield_current_thread(&mut self) {
         let current = thread::current_thread();
         current.status = thread::Status::Ready;
+        self.ready_list.push_back(&mut current.status_list_node);
         self.schedule();
     }
 
@@ -172,11 +192,12 @@ impl Scheduler {
     /// This function does not preempt the running thread. This can be
     /// important: if the caller had disabled interrupts itself, it may expect
     /// that it can atomically unblock a thread and update other data.
-    pub fn unblock(&mut self, thread: &mut thread::Thread) {
+    pub fn unblock(&mut self, thread: &'static mut thread::Thread) {
         assert!(thread.is_thread());
         assert!(thread.status == thread::Status::Blocked);
 
         thread.status = thread::Status::Ready;
+        self.ready_list.push_back(&mut thread.status_list_node);
     }
 
     /// Prints thread statistics.
@@ -191,7 +212,7 @@ impl Scheduler {
     /// running process's state must have been changed from running to some
     /// other state. This function finds another thread to run and switches to
     /// it.
-    fn schedule(&self) {
+    fn schedule(&mut self) {
         let current = thread::running_thread();
         let next = self.next_thread_to_run();
 
@@ -234,18 +255,26 @@ impl Scheduler {
     /// thread from the run queue, unless the run queue is empty. (If the
     /// running thread can continue running, then it will be in the run queue.)
     /// If the run queue is empty, then choose `idle_thread`.
-    fn next_thread_to_run(&self) -> &'static mut thread::Thread {
-        // TODO: implement this properly. For now, always re-schedule the
-        // current thread.
-        thread::running_thread()
+    fn next_thread_to_run(&mut self) -> &'static mut thread::Thread {
+        self.ready_list
+            .pop_front()
+            .map(|node| get_list_element!(node, thread::Thread, status_list_node))
+            .or(self.idle_thread())
+            .expect("Idle thread should have been initialized.")
     }
 
     /// Returns `true` if current thread is idle.
     fn is_idle_thread(&self) -> bool {
         let thread = thread::current_thread();
 
+        self.idle_thread()
+            .map_or_else(|| false, |idle| idle == thread)
+    }
+
+    /// Returns the idle thread, if initialized.
+    fn idle_thread(&self) -> Option<&'static mut thread::Thread> {
         self.idle_thread
-            .map_or_else(|| false, |idle| idle.as_ptr() == thread)
+            .map(|thread| unsafe { &mut (*thread.as_ptr()) })
     }
 }
 

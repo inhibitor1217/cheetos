@@ -81,7 +81,8 @@ impl Inner {
 
     fn down(&mut self) {
         while self.value == 0 {
-            self.waiters.push_back(&mut current_thread().sync_node);
+            self.waiters
+                .push_back(&mut current_thread().status_list_node);
             SCHEDULER.lock().block_current_thread();
         }
 
@@ -101,7 +102,7 @@ impl Inner {
         if let Some(node) = self.waiters.pop_front() {
             SCHEDULER
                 .lock()
-                .unblock(get_list_element!(node, Thread, sync_node));
+                .unblock(get_list_element!(node, Thread, status_list_node));
         }
         self.value += 1;
     }
