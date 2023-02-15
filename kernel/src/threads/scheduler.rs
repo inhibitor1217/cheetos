@@ -1,8 +1,10 @@
+extern crate alloc;
+
 use core::ptr::NonNull;
 
 use crate::{get_list_element, println, utils::data_structures::linked_list::LinkedList};
 
-use super::{interrupt, thread};
+use super::{interrupt, palloc, sync, thread};
 
 /// Switches from `cur`, which must be the running thread, to `next`, which
 /// must also be running [`switch_threads!`], returning `cur` in `next`'s
@@ -90,6 +92,9 @@ impl Scheduler {
         self.all_list
             .push_back(&mut thread::current_thread().all_list_node);
 
+        let idle_started = alloc::sync::Arc::new(sync::semaphore::Semaphore::new(0));
+        let idle_started_clone = idle_started.clone();
+
         // Idle thread. Executes when no other thread is ready to run.
         //
         // The idle thread is initially put on the ready list. It will be
@@ -98,6 +103,8 @@ impl Scheduler {
         // `Scheduler::next_thread_to_run` as a special case when the ready list
         // is empty.
         let idle = move || {
+            idle_started_clone.up();
+
             loop {
                 // Let someone else run.
                 SCHEDULER.lock().block_current_thread();
@@ -114,6 +121,9 @@ impl Scheduler {
 
         // Start preemptive thread scheduling.
         interrupt::enable();
+
+        // Wait for the idle thread to initialize.
+        idle_started.down();
     }
 
     /// Called by the timer interrupt handler at each timer tick.
@@ -130,7 +140,7 @@ impl Scheduler {
 
     /// Creates a new kernel thread named `name` with given initial `priority`.
     ///
-    /// Returns the id of the thread, or `None` if creation fails.
+    /// Returns the new thread, or `None` if creation fails.
     ///
     /// If `spawn` has been called, then the new thread may be scheduled before
     /// `spawn` returns. Contrawise, the original thread may run for any amount
@@ -140,17 +150,27 @@ impl Scheduler {
     /// The code provided sets the new thread's priority to `priority`, but no
     /// actual priority scheduling is implemented.
     /// Priority scheduling is the goal of Problem 1-3.
-    pub fn spawn<F>(
-        &mut self,
-        _f: F,
-        _name: &str,
-        _priority: u32,
-    ) -> Option<&'static mut thread::Thread>
+    pub fn spawn<F>(&mut self, _f: F, name: &str, priority: u32) -> Option<*mut thread::Thread>
     where
         F: FnOnce(),
         F: Send + 'static,
     {
-        None
+        // Allocate thread.
+        if let Some(thread_ptr) = palloc::PAGE_ALLOCATOR
+            .get_pages(thread::Thread::STACK_PAGES, palloc::AllocateFlags::ZERO)
+            .map(|page| page.start_address().as_mut_ptr::<thread::Thread>())
+        {
+            let thread = unsafe { &mut (*thread_ptr) };
+
+            thread.init(name, priority);
+
+            // Add to run queue.
+            self.unblock(thread);
+
+            Some(thread_ptr)
+        } else {
+            None
+        }
     }
 
     /// Puts the current thread to sleep. It will not be scheduled again awoken
