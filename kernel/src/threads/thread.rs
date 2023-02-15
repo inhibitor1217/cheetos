@@ -1,9 +1,6 @@
 use crate::utils::data_structures::linked_list;
 
-use super::{interrupt, sync::lock};
-
-/// Atomic counter for generating [`Id`]s.
-static THREAD_ID: lock::Mutex<u32> = lock::Mutex::new(0);
+use super::{addr, interrupt};
 
 /// Thread identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -13,11 +10,10 @@ pub struct Id(u32);
 impl Id {
     /// Returns a thread id to use for a new thread.
     pub fn new() -> Self {
-        let mut id_lock = THREAD_ID.lock();
-        let id = *id_lock;
-        *id_lock += 1;
+        /// Atomic counter for generating [`Id`]s.
+        static THREAD_ID: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(1);
 
-        Self(id)
+        Self(THREAD_ID.fetch_add(1, core::sync::atomic::Ordering::Relaxed) as u32)
     }
 }
 
@@ -145,6 +141,9 @@ impl Thread {
     /// Thread stack size; 16 KiB.
     pub const STACK_SIZE: usize = 0x4000;
 
+    /// Number of pages in the thread stack.
+    pub const STACK_PAGES: usize = Self::STACK_SIZE / addr::PAGE_SIZE;
+
     /// Bitmask for retrieving the [`Thread`] structure from stack pointer.
     pub const STACK_MASK: u64 = 0x3fff;
 
@@ -153,6 +152,7 @@ impl Thread {
         assert!(priority <= Self::PRIORITY_MAX);
         assert!(name.len() <= Self::NAME_LENGTH);
 
+        self.id = Id::new();
         self.status = Status::Blocked;
         self.name = [0; Self::NAME_LENGTH];
         self.name[..name.len()].copy_from_slice(name.as_bytes());
@@ -212,7 +212,6 @@ pub fn init() {
     let mut kernel_thread = running_thread();
     kernel_thread.init("main", Thread::PRIORITY_DEFAULT);
     kernel_thread.status = Status::Running;
-    kernel_thread.id = Id::new();
 }
 
 /// Returns the current thread.
