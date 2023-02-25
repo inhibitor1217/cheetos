@@ -2,11 +2,14 @@ extern crate alloc;
 
 use core::ptr::NonNull;
 
-use crate::{get_list_element, println, utils::data_structures::linked_list::LinkedList};
+use crate::{
+    devices::shutdown, get_list_element, println, utils::data_structures::linked_list::LinkedList,
+};
 
 use super::{interrupt, palloc, sync, thread};
 
 /// Stack frame for [`switch_threads!`].
+#[derive(Default)]
 #[repr(C, packed)]
 struct SwitchThreadsFrame {
     rbx: usize,
@@ -187,19 +190,15 @@ impl Scheduler {
 
             thread.init(name, priority);
 
-            // Construct stack frame.
-            unsafe {
-                // Stack frame for `Scheduler::schedule()`.
-                thread.stack = thread.stack.sub(core::mem::size_of::<ScheduleFrame>());
-                *(thread.stack.cast::<ScheduleFrame>()) = ScheduleFrame {
-                    scheduler_self: self,
-                    stack: [0x0; 0x20],
-                    rip: kernel_thread as extern "C" fn(),
-                };
+            // Stack frame for `Scheduler::schedule()`.
+            thread.push_to_stack(ScheduleFrame {
+                scheduler_self: self,
+                stack: [0x0; 0x20],
+                rip: kernel_thread as extern "C" fn(),
+            });
 
-                // Stack frame for `switch_threads!()`.
-                thread.stack = thread.stack.sub(core::mem::size_of::<SwitchThreadsFrame>());
-            }
+            // Stack frame for `switch_threads!()`.
+            thread.push_to_stack(SwitchThreadsFrame::default());
 
             // Add to run queue.
             self.unblock(thread);
@@ -342,5 +341,10 @@ pub static SCHEDULER: interrupt::Mutex<Scheduler> = interrupt::Mutex::new(Schedu
 
 /// Function used as the basis for a kernel thread.
 extern "C" fn kernel_thread() {
-    let _current = thread::current_thread();
+    interrupt::enable();
+
+    let current = thread::current_thread();
+    println!("Thread id is: {:?}", current.id);
+
+    shutdown::power_off();
 }

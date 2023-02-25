@@ -178,6 +178,16 @@ impl Thread {
             .unwrap_or(Self::NAME_LENGTH);
         core::str::from_utf8(&self.name[..end]).unwrap()
     }
+
+    /// Push `value` to the stack of the thread.
+    pub fn push_to_stack<T: Sized>(&mut self, value: T) {
+        assert!(core::mem::size_of::<T>() < Self::STACK_SIZE);
+
+        unsafe {
+            self.stack = self.stack.sub(core::mem::size_of::<T>());
+            *(self.stack.cast::<T>()) = value;
+        }
+    }
 }
 
 impl PartialEq for Thread {
