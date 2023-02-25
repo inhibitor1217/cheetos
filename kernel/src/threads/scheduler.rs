@@ -6,36 +6,59 @@ use crate::{get_list_element, println, utils::data_structures::linked_list::Link
 
 use super::{interrupt, palloc, sync, thread};
 
+/// Stack frame for [`switch_threads!`].
+#[repr(C, packed)]
+struct SwitchThreadsFrame {
+    rbx: usize,
+    rbp: usize,
+    rsi: usize,
+    rdi: usize,
+}
+
+/// Stack frame for `Scheduler::schedule()`.
+#[repr(C, packed)]
+struct ScheduleFrame {
+    /// The `self` reference.
+    scheduler_self: *mut Scheduler,
+
+    /// Rest of the stack used by `schedule()`.
+    stack: [u8; 0x20],
+
+    /// Return address.
+    rip: extern "C" fn(),
+}
+
 /// Switches from `cur`, which must be the running thread, to `next`, which
 /// must also be running [`switch_threads!`], returning `cur` in `next`'s
 /// context.
 macro_rules! switch_threads {
     ($cur:expr, $next:expr) => {{
-        // unsafe {
-        //     asm!(
-        //         // Save caller's register state.
-        //         //
-        //         // Note that the SVR4 ABI alalows us to destry %rax, %rcx, %rdx,
-        //         // but requires us to preserve %rbx, %rbp, %rsi, and %rdi.
-        //         //
-        //         // This stack frame must match the one set up by `Thread::new` in size.
-        //         "push rbx",
-        //         "push rbp",
-        //         "push rsi",
-        //         "push rdi",
-        //         // Save current stack pointer to old thread's stack, if any.
-        //         "mov {0}, rsp",
-        //         // Restore stack pointer from new thread's stack.
-        //         "mov rsp, {1}",
-        //         // Restore caller's register state.
-        //         "pop rdi",
-        //         "pop rsi",
-        //         "pop rbp",
-        //         "pop rbx",
-        //         out(reg) $cur.stack,
-        //         in(reg) $next.stack,
-        //     );
-        // }
+        unsafe {
+            core::arch::asm!(
+                // Save caller's register state.
+                //
+                // Note that the SVR4 ABI alalows us to destry %rax, %rcx, %rdx,
+                // but requires us to preserve %rbx, %rbp, %rsi, and %rdi.
+                //
+                // This stack frame must match the one set up by
+                // `Scheduler::spawn` in size.
+                "push rbx",
+                "push rbp",
+                "push rsi",
+                "push rdi",
+                // Save current stack pointer to old thread's stack, if any.
+                "mov {0}, rsp",
+                // Restore stack pointer from new thread's stack.
+                "mov rsp, {1}",
+                // Restore caller's register state.
+                "pop rdi",
+                "pop rsi",
+                "pop rbp",
+                "pop rbx",
+                out(reg) $cur.stack,
+                in(reg) $next.stack,
+            );
+        }
         $cur
     }};
 }
@@ -164,6 +187,20 @@ impl Scheduler {
 
             thread.init(name, priority);
 
+            // Construct stack frame.
+            unsafe {
+                // Stack frame for `Scheduler::schedule()`.
+                thread.stack = thread.stack.sub(core::mem::size_of::<ScheduleFrame>());
+                *(thread.stack.cast::<ScheduleFrame>()) = ScheduleFrame {
+                    scheduler_self: self,
+                    stack: [0x0; 0x20],
+                    rip: kernel_thread as extern "C" fn(),
+                };
+
+                // Stack frame for `switch_threads!()`.
+                thread.stack = thread.stack.sub(core::mem::size_of::<SwitchThreadsFrame>());
+            }
+
             // Add to run queue.
             self.unblock(thread);
 
@@ -240,6 +277,7 @@ impl Scheduler {
         assert!(current.status != thread::Status::Running);
         assert!(next.is_thread());
 
+        // Perform the context switch.
         if current != next {
             let _prev = switch_threads!(current, next);
             // TODO: drop `prev` if it is dying
@@ -248,14 +286,12 @@ impl Scheduler {
         self.schedule_tail();
     }
 
-    /// Completes a thread switch by activating the new thread's page tables,
-    /// and, if the previous thread is dying, destroying it.
+    /// Completes a thread switch.
     ///
     /// At this function's invocation, we just switched from the previous
     /// thread, the next thread is already running, and interrupts are still
     /// disabled. This function is normally invoked by [`schedule()`] as its
-    /// final action before returning, but the first time a thread is scheduled
-    /// it is called by [`switch_entry()`].
+    /// final action before returning.
     ///
     /// After this function and its caller returns, the thread switch is
     /// complete.
@@ -303,3 +339,8 @@ impl Scheduler {
 /// It is protected behind the [`interrupt::Mutex`] to ensure
 /// that only one thread can access it at a time.
 pub static SCHEDULER: interrupt::Mutex<Scheduler> = interrupt::Mutex::new(Scheduler::new());
+
+/// Function used as the basis for a kernel thread.
+extern "C" fn kernel_thread() {
+    let _current = thread::current_thread();
+}
