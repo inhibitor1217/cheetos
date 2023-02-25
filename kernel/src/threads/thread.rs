@@ -13,7 +13,7 @@ impl Id {
         /// Atomic counter for generating [`Id`]s.
         static THREAD_ID: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(1);
 
-        Self(THREAD_ID.fetch_add(1, core::sync::atomic::Ordering::Relaxed) as u32)
+        Self(THREAD_ID.fetch_add(1, core::sync::atomic::Ordering::Relaxed))
     }
 }
 
