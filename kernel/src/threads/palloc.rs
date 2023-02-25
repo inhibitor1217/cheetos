@@ -130,6 +130,53 @@ impl PageAllocator {
         pages_start
     }
 
+    /// Obtains and returns a group of `count` contiguous free pages, aligned
+    /// at `align`.
+    ///
+    /// - If `AllocateFlags::USER` is set, the page is obtained from the user
+    /// pool, otherwise from the kernel pool.
+    /// - If `AllocateFlags::ZERO` is set, the page is filled with zeros.
+    ///
+    /// If too few pages are available, returns `None`.
+    #[must_use = "The allocated page should be used and freed, otherwise it would leak the memory"]
+    pub fn get_pages_aligned(
+        &self,
+        count: usize,
+        align: usize,
+        flags: AllocateFlags,
+    ) -> Option<Page> {
+        if count == 0 {
+            return None;
+        }
+
+        // Allocate count + align pages, since some of them should contain the
+        // aligned range of pages.
+        if let Some(page_start) = self.get_pages(count + align, flags) {
+            let count = count as u64;
+            let align = align as u64;
+
+            let page_end = page_start + count + align;
+            let aligned_page_start =
+                page_start + (align - (page_number(page_start) % align)) % align;
+            let aligned_page_end = aligned_page_start + count;
+
+            // Free the unused pages.
+            unsafe {
+                if aligned_page_start > page_start {
+                    self.free_pages(page_start, (aligned_page_start - page_start) as usize);
+                }
+
+                if aligned_page_end < page_end {
+                    self.free_pages(aligned_page_end, (page_end - aligned_page_end) as usize);
+                }
+            }
+
+            Some(aligned_page_start)
+        } else {
+            None
+        }
+    }
+
     /// Frees the `page`.
     ///
     /// # Safety

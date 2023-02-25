@@ -183,7 +183,11 @@ impl Scheduler {
     {
         // Allocate thread.
         if let Some(thread_ptr) = palloc::PAGE_ALLOCATOR
-            .get_pages(thread::Thread::STACK_PAGES, palloc::AllocateFlags::ZERO)
+            .get_pages_aligned(
+                thread::Thread::STACK_PAGES,
+                thread::Thread::STACK_PAGES,
+                palloc::AllocateFlags::ZERO,
+            )
             .map(|page| page.start_address().as_mut_ptr::<thread::Thread>())
         {
             let thread = unsafe { &mut (*thread_ptr) };
@@ -344,7 +348,12 @@ extern "C" fn kernel_thread() {
     interrupt::enable();
 
     let current = thread::current_thread();
-    println!("Thread id is: {:?}", current.id);
+    println!(
+        "Thread id is: {:?}, name is: {:?}",
+        current.id,
+        current.name()
+    );
 
+    // Temporary
     shutdown::power_off();
 }
