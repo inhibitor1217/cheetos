@@ -1,3 +1,5 @@
+extern crate alloc;
+
 use crate::utils::data_structures::linked_list;
 
 use super::{addr, interrupt};
@@ -106,6 +108,9 @@ pub struct Thread {
     /// Number of timer ticks since last yield.
     pub ticks: u32,
 
+    /// The entrypoint function of the thread.
+    entrypoint: Option<core::ptr::NonNull<dyn Fn()>>,
+
     /// Linked list node contained by the all-threads list of the thread
     /// scheduler.
     pub all_list_node: linked_list::Node,
@@ -159,6 +164,7 @@ impl Thread {
         self.stack = unsafe { (self as *mut Thread).cast::<u8>().add(Self::STACK_SIZE) };
         self.priority = priority;
         self.ticks = 0;
+        self.entrypoint = None;
         self.all_list_node = linked_list::Node::new();
         self.status_list_node = linked_list::Node::new();
         self.magic = Self::MAGIC;
@@ -186,6 +192,27 @@ impl Thread {
         unsafe {
             self.stack = self.stack.sub(core::mem::size_of::<T>());
             *(self.stack.cast::<T>()) = value;
+        }
+    }
+
+    /// Configure the given closure to be the entrypoint of this thread.
+    pub fn entrypoint<F>(&mut self, f: F)
+    where
+        F: Fn(),
+        F: Send + 'static,
+    {
+        // Ensure `Box` is not dropped after this function terminates:
+        // Perhaps, the closure should live longer than the caller thread itself.
+        let entrypoint = alloc::boxed::Box::into_raw(alloc::boxed::Box::new(f));
+        self.entrypoint = unsafe { Some(core::ptr::NonNull::new_unchecked(entrypoint)) };
+    }
+
+    /// Starts the thread's main job by invoking the entrypoint.
+    pub fn run(&self) {
+        if let Some(entrypoint) = self.entrypoint {
+            unsafe {
+                (*entrypoint.as_ptr())();
+            }
         }
     }
 }
