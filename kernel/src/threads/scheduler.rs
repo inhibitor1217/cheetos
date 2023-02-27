@@ -2,9 +2,7 @@ extern crate alloc;
 
 use core::ptr::NonNull;
 
-use crate::{
-    devices::shutdown, get_list_element, println, utils::data_structures::linked_list::LinkedList,
-};
+use crate::{get_list_element, println, utils::data_structures::linked_list::LinkedList};
 
 use super::{interrupt, palloc, sync, thread};
 
@@ -176,9 +174,9 @@ impl Scheduler {
     /// The code provided sets the new thread's priority to `priority`, but no
     /// actual priority scheduling is implemented.
     /// Priority scheduling is the goal of Problem 1-3.
-    pub fn spawn<F>(&mut self, _f: F, name: &str, priority: u32) -> Option<*mut thread::Thread>
+    pub fn spawn<F>(&mut self, f: F, name: &str, priority: u32) -> Option<*mut thread::Thread>
     where
-        F: FnOnce(),
+        F: Fn(),
         F: Send + 'static,
     {
         // Allocate thread.
@@ -203,6 +201,9 @@ impl Scheduler {
 
             // Stack frame for `switch_threads!()`.
             thread.push_to_stack(SwitchThreadsFrame::default());
+
+            // Set the entrypoint.
+            thread.entrypoint(f);
 
             // Add to run queue.
             self.unblock(thread);
@@ -243,6 +244,26 @@ impl Scheduler {
         current.status = thread::Status::Ready;
         self.ready_list.push_back(&mut current.status_list_node);
         self.schedule();
+    }
+
+    /// Deschedules the current thread and destroys it.
+    /// Never returns to the caller.
+    pub fn exit_current_thread(&mut self) -> ! {
+        assert!(!interrupt::is_external_handler_context());
+
+        interrupt::disable();
+        let current = thread::current_thread();
+        current
+            .all_list_node
+            .cursor_mut(&mut self.all_list)
+            .remove_current();
+        current.status = thread::Status::Dying;
+        self.schedule();
+
+        panic!(
+            "Should not reach here: thread \"{}\" should be never scheduled.",
+            current.name()
+        );
     }
 
     /// Transitions a blocked thread to the ready-to-run state.
@@ -347,13 +368,7 @@ pub static SCHEDULER: interrupt::Mutex<Scheduler> = interrupt::Mutex::new(Schedu
 extern "C" fn kernel_thread() {
     interrupt::enable();
 
-    let current = thread::current_thread();
-    println!(
-        "Thread id is: {:?}, name is: {:?}",
-        current.id,
-        current.name()
-    );
+    thread::current_thread().run();
 
-    // Temporary
-    shutdown::power_off();
+    SCHEDULER.lock().exit_current_thread();
 }
