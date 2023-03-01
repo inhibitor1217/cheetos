@@ -6,62 +6,23 @@ use crate::{get_list_element, println, utils::data_structures::linked_list::Link
 
 use super::{interrupt, palloc, sync, thread};
 
-/// Stack frame for [`switch_threads!`].
-#[derive(Default)]
+/// Stack frame for [`switch_threads()`].
 #[repr(C, packed)]
 struct SwitchThreadsFrame {
     rbx: usize,
     rbp: usize,
     rsi: usize,
     rdi: usize,
-}
-
-/// Stack frame for `Scheduler::schedule()`.
-#[repr(C, packed)]
-struct ScheduleFrame {
-    /// The `self` reference.
-    scheduler_self: *mut Scheduler,
-
-    /// Rest of the stack used by `schedule()`.
-    stack: [u8; 0x20],
 
     /// Return address.
-    rip: extern "C" fn(),
+    rip: unsafe extern "C" fn(),
 }
 
-/// Switches from `cur`, which must be the running thread, to `next`, which
-/// must also be running [`switch_threads!`], returning `cur` in `next`'s
-/// context.
-macro_rules! switch_threads {
-    ($cur:expr, $next:expr) => {{
-        unsafe {
-            core::arch::asm!(
-                // Save caller's register state.
-                //
-                // Note that the SVR4 ABI alalows us to destry %rax, %rcx, %rdx,
-                // but requires us to preserve %rbx, %rbp, %rsi, and %rdi.
-                //
-                // This stack frame must match the one set up by
-                // `Scheduler::spawn` in size.
-                "push rbx",
-                "push rbp",
-                "push rsi",
-                "push rdi",
-                // Save current stack pointer to old thread's stack, if any.
-                "mov {0}, rsp",
-                // Restore stack pointer from new thread's stack.
-                "mov rsp, {1}",
-                // Restore caller's register state.
-                "pop rdi",
-                "pop rsi",
-                "pop rbp",
-                "pop rbx",
-                out(reg) $cur.stack,
-                in(reg) $next.stack,
-            );
-        }
-        $cur
-    }};
+/// Stack frame for [`switch_entry()`].
+#[repr(C, packed)]
+struct SwitchEntryFrame {
+    /// Return address.
+    rip: unsafe extern "C" fn(),
 }
 
 /// The scheduler. This module contains the implementation of the scheduler, which
@@ -192,15 +153,15 @@ impl Scheduler {
 
             thread.init(name, priority);
 
-            // Stack frame for `Scheduler::schedule()`.
-            thread.push_to_stack(ScheduleFrame {
-                scheduler_self: self,
-                stack: [0x0; 0x20],
-                rip: kernel_thread as extern "C" fn(),
-            });
+            thread.push_to_stack(SwitchEntryFrame { rip: kernel_thread });
 
-            // Stack frame for `switch_threads!()`.
-            thread.push_to_stack(SwitchThreadsFrame::default());
+            thread.push_to_stack(SwitchThreadsFrame {
+                rbx: 0,
+                rbp: 0,
+                rsi: 0,
+                rdi: 0,
+                rip: switch_entry,
+            });
 
             // Set the entrypoint.
             thread.entrypoint(f);
@@ -252,12 +213,14 @@ impl Scheduler {
         assert!(!interrupt::is_external_handler_context());
 
         interrupt::disable();
+
         let current = thread::current_thread();
         current
             .all_list_node
             .cursor_mut(&mut self.all_list)
             .remove_current();
         current.status = thread::Status::Dying;
+
         self.schedule();
 
         panic!(
@@ -303,11 +266,12 @@ impl Scheduler {
 
         // Perform the context switch.
         if current != next {
-            let _prev = switch_threads!(current, next);
-            // TODO: drop `prev` if it is dying
+            unsafe {
+                switch_threads(current, next);
+            }
         }
 
-        self.schedule_tail();
+        Self::schedule_tail();
     }
 
     /// Completes a thread switch.
@@ -319,7 +283,7 @@ impl Scheduler {
     ///
     /// After this function and its caller returns, the thread switch is
     /// complete.
-    fn schedule_tail(&self) {
+    fn schedule_tail() {
         let current = thread::running_thread();
 
         assert!(interrupt::are_disabled());
@@ -371,4 +335,49 @@ extern "C" fn kernel_thread() {
     thread::current_thread().run();
 
     SCHEDULER.lock().exit_current_thread();
+}
+
+core::arch::global_asm!(
+    r#"
+.global switch_threads
+switch_threads:
+    push rbx
+    push rbp
+    push rsi
+    push rdi
+    mov [rdi + 0x18], rsp
+    mov rsp, [rsi + 0x18]
+    call {0}
+    pop rdi
+    pop rsi
+    pop rbp
+    pop rbx
+    ret
+"#,
+    sym reclaim_dying_thread,
+);
+
+core::arch::global_asm!(
+    r#"
+.global switch_entry
+switch_entry:
+    call {0}
+    ret
+"#,
+    sym Scheduler::schedule_tail,
+);
+
+extern "C" {
+    fn switch_threads(current: *mut thread::Thread, next: *mut thread::Thread);
+    fn switch_entry();
+}
+
+/// Deallocates the thread by reclaiming the memory allocated by thread
+/// and freeing the pages allocated to the thread stack.
+extern "C" fn reclaim_dying_thread(thread: &'static mut thread::Thread) {
+    if thread.status == thread::Status::Dying {
+        // We do not deallocate main thread or idle thread.
+        assert!(thread.name() != "main");
+        assert!(thread.name() != "idle");
+    }
 }
